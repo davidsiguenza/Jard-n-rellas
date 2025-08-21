@@ -73,3 +73,99 @@ For example, to add a new data file for `2025-09-01`, you would:
       "path": "data/2025-09-01.json"
     }
     ```
+
+---
+
+## Manual Configuration Checklist
+
+This section provides a checklist of the manual changes required to configure this project for GitHub Pages deployment. This is useful if the project files are overwritten by an external tool (like AI Studio) and the deployment configuration needs to be restored.
+
+### 1. File and Directory Structure
+
+Ensure the following directory structure exists. The key is to have a `public` directory at the root, which contains the `data` directory.
+
+```
+.
+├── public/
+│   └── data/
+│       ├── 2024-05-25.json
+│       ├── 2025-08-01.json
+│       ├── ... (other data files)
+│       └── manifest.json
+├── src/
+│   └── ... (source files)
+└── ... (other project files)
+```
+
+### 2. `package.json` Modifications
+
+The following changes need to be made to `package.json`:
+
+- **Install `gh-pages` dependency:**
+  ```bash
+  npm install gh-pages --save-dev
+  ```
+
+- **Add `homepage` property:**
+  Add a `homepage` property. Replace `<username>` and `<repo-name>` with your actual GitHub username and repository name.
+  ```json
+  "homepage": "https://<username>.github.io/<repo-name>",
+  ```
+
+- **Add `deploy` scripts:**
+  Add the `predeploy` and `deploy` scripts to the `scripts` section.
+  ```json
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  },
+  ```
+
+### 3. `vite.config.ts` Modifications
+
+Add the `base` property to the Vite configuration object. The value should be your repository name, surrounded by slashes.
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+// ... other imports
+
+export default defineConfig({
+  base: '/interactive-garden-map/', // Or your repository name
+  // ... other configurations
+});
+```
+
+### 4. Code Changes in `App.tsx`
+
+The `fetch` call for `manifest.json` needs to use a **relative path**.
+
+- **Find this line:**
+  ```typescript
+  const response = await fetch('/data/manifest.json');
+  ```
+
+- **Change it to:**
+  ```typescript
+  const response = await fetch('data/manifest.json');
+  ```
+
+### 5. Data File Path Correction in `manifest.json`
+
+The paths inside `public/data/manifest.json` must also be **relative**.
+
+- **Ensure paths look like this (no leading slash):**
+  ```json
+  {
+    "versions": [
+      {
+        "date": "2025-08-20",
+        "path": "data/2025-08-20.json"
+      },
+      // ...
+    ]
+  }
+  ```
