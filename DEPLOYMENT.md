@@ -54,3 +54,22 @@ This document explains how to deploy the interactive garden map application to G
    - Save the changes.
 
 Your application should now be deployed to the URL specified in the `homepage` property of your `package.json` file.
+
+## Managing Historical Data
+
+The historical data for the garden is stored in JSON files in the `public/data` directory.
+The `public/data/manifest.json` file contains a list of all available data files and their corresponding dates.
+
+To add a new historical data file, you need to:
+1.  Add the new JSON file to the `public/data` directory.
+2.  Update the `public/data/manifest.json` file to include the new file's date and path.
+
+For example, to add a new data file for `2025-09-01`, you would:
+1.  Add the file `2025-09-01.json` to the `public/data` directory.
+2.  Add a new entry to the `versions` array in `public/data/manifest.json`:
+    ```json
+    {
+      "date": "2025-09-01",
+      "path": "/data/2025-09-01.json"
+    }
+    ```
