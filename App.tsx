@@ -344,6 +344,14 @@ const App: React.FC = () => {
       };
       reader.readAsText(file);
   };
+
+  const handleClearLocalStorage = () => {
+    if (confirm("Are you sure you want to clear all locally saved garden versions? This action cannot be undone.")) {
+        localStorage.removeItem('gardenHistory');
+        alert("Local data has been cleared. The page will now reload.");
+        window.location.reload();
+    }
+  };
   
   const handleTreeClick = (tree: Tree | DiffTree) => {
     if (isAddingTree || movingTreeUuid) return;
@@ -551,6 +559,7 @@ const App: React.FC = () => {
         compareDates={compareDates}
         onCompareDateChange={handleCompareDateChange}
         isComparing={isComparing}
+        onClearLocalStorage={handleClearLocalStorage}
       />
       <div className="flex-grow w-full h-full flex justify-center items-center p-2 bg-gray-200">
         <div 
