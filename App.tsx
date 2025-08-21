@@ -49,19 +49,27 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
       let manifestMap = new Map<string, string>();
       try {
-        const response = await fetch('/data/manifest.json');
+        const manifestUrl = import.meta.env.BASE_URL + 'data/manifest.json';
+        const response = await fetch(manifestUrl);
         if (!response.ok) throw new Error('Failed to fetch manifest');
         const manifest = await response.json();
-        
+
         manifest.versions.forEach((v: {date: string, path: string}) => {
-          manifestMap.set(v.date, v.path);
+          // Asegura que la ruta sea relativa a BASE_URL
+          manifestMap.set(v.date, import.meta.env.BASE_URL + v.path.replace(/^data\//, 'data/'));
         });
         setManifestVersions(manifestMap);
       } catch (error) {
         console.error("Could not load manifest.json:", error);
         alert("Could not load base garden history. Only showing locally saved versions.");
+      // Para soporte de import.meta.env.BASE_URL en TypeScript
+      interface ImportMeta {
+        env: {
+          BASE_URL: string;
+        };
       }
-      
+      }
+
       const storedHistory = getStoredHistory();
       const localStates = new Map<string, GardenState>();
       storedHistory.forEach(state => {
@@ -71,7 +79,7 @@ const App: React.FC = () => {
 
       const allDates = [...new Set([...manifestMap.keys(), ...localStates.keys()])];
       allDates.sort((a, b) => b.localeCompare(a)); // Newest first
-      
+
       setAvailableDates(allDates);
 
       if (allDates.length > 0) {
@@ -100,7 +108,7 @@ const App: React.FC = () => {
           const response = await fetch(path);
           if (!response.ok) throw new Error(`Failed to fetch ${path}`);
           const gardenState: GardenState = await response.json();
-          
+
           setCachedStates(prev => new Map(prev).set(selectedDate, gardenState));
           setActiveGardenState(gardenState);
           setEditedTrees(null); // Clear edits when changing date
