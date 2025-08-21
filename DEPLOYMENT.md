@@ -70,6 +70,6 @@ For example, to add a new data file for `2025-09-01`, you would:
     ```json
     {
       "date": "2025-09-01",
-      "path": "/data/2025-09-01.json"
+      "path": "data/2025-09-01.json"
     }
     ```
