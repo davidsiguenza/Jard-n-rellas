@@ -1,3 +1,4 @@
+
 {
     "date": "2025-08-01",
     "trees": [
@@ -72,8 +73,8 @@
         { "id": 19, "uuid": "svg-19", "name": "Arce Japónico", "position": { "x": 38.34, "y": 50.25 }, "status": "identified", "size": "xl" },
         { "id": 20, "uuid": "svg-20", "name": "Rododendro", "position": { "x": 36.05, "y": 47.65 }, "status": "identified", "size": "xl" },
         { "id": 21, "uuid": "svg-21", "name": "Glicinia Arbórea", "position": { "x": 33.33, "y": 46.35 }, "status": "identified", "size": "xl" },
-        { "id": 22, "uuid": "svg-22", "name": "Araucaria", "position": { "x": 71.64, "y": 57.90 }, "status": "identified", "size": "l" },
-        { "id": 23, "uuid": "svg-23", "name": "Cedro del Líbano", "position": { "x": 45.73, "y": 57.06 }, "status": "identified", "size": "xl" },
+        { "id": 22, "uuid": "svg-22", "name": "Araucaria", "position": { "x": 70, "y": 57 }, "status": "identified", "size": "l" },
+        { "id": 23, "uuid": "svg-23", "name": "Cedro del Líbano", "position": { "x": 45.73, "y": 57.06 }, "status": "to_be_cut", "size": "xl" },
         { "id": 24, "uuid": "svg-24", "name": "Cercis (Árbol del Amor)", "position": { "x": 44.10, "y": 51.20 }, "status": "identified", "size": "m" },
         { "id": 25, "uuid": "svg-25-1", "name": "Arce", "position": { "x": 50.97, "y": 58.69 }, "status": "identified", "size": "xl" },
         { "id": 25, "uuid": "svg-25-2", "name": "Arce", "position": { "x": 53.37, "y": 59.12 }, "status": "identified", "size": "l" },
@@ -185,9 +186,6 @@
         { "id": 43, "uuid": "svg-43", "name": "Mirabel (Ciruelo)", "position": { "x": 50.81, "y": 51.21 }, "status": "identified", "size": "m" },
         { "id": 44, "uuid": "svg-44-1", "name": "Ciruelo", "position": { "x": 81.14, "y": 57.88 }, "status": "identified", "size": "s" },
         { "id": 44, "uuid": "svg-44-2", "name": "Ciruelo", "position": { "x": 84.51, "y": 55.15 }, "status": "unidentified", "size": "xs" },
-        { "id": 0, "uuid": "svg-?-1", "name": "???", "position": { "x": 78.71, "y": 67.66 }, "status": "unidentified", "size": "l" },
-        { "id": 38, "uuid": "svg-38-cut-1", "name": "Nogal", "position": { "x": 63.61, "y": 49.38 }, "status": "to_be_cut", "size": "s" },
-        { "id": 38, "uuid": "svg-38-cut-2", "name": "Nogal", "position": { "x": 60.38, "y": 60.19 }, "status": "to_be_cut", "size": "m" },
-        { "id": 36, "uuid": "svg-36-cut-1", "name": "Cerezo", "position": { "x": 68.37, "y": 50.69 }, "status": "to_be_cut", "size": "xl" }
+        { "id": 0, "uuid": "new-tree-1", "name": "New Oak", "position": { "x": 30, "y": 50 }, "status": "identified", "size": "s" }
     ]
 }

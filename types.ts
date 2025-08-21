@@ -29,3 +29,16 @@ export interface GardenState {
   date: string;
   trees: Tree[];
 }
+
+export enum TreeDiffStatus {
+  Added = 'added',
+  Removed = 'removed',
+  Moved = 'moved',
+  Changed = 'changed',
+  Unchanged = 'unchanged',
+}
+
+export interface DiffTree extends Tree {
+  diffStatus: TreeDiffStatus;
+  previous?: Tree; // To store old state for moved/changed trees
+}

@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GardenState, Tree, TreeSize, TreeStatus } from './types';
+import { GardenState, Tree, TreeSize, TreeStatus, DiffTree, TreeDiffStatus } from './types';
 import { TREE_NAMES } from './constants';
 import GardenMap from './GardenMap';
 import Toolbar from './components/Toolbar';
@@ -10,6 +11,20 @@ const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 5;
 const ZOOM_SENSITIVITY = 0.001;
 const PAN_STEP = 50;
+
+const CompareLegend: React.FC = () => (
+  <div className="absolute bottom-4 left-4 z-20 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-lg text-xs text-gray-700">
+    <h3 className="font-bold mb-2 text-sm">Comparison Legend</h3>
+    <div className="space-y-1">
+      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-green-500 border border-green-300 mr-2"></div> Added</div>
+      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-500 border border-red-300 mr-2"></div> Removed</div>
+      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-500 border border-blue-300 mr-2"></div> Moved (New Position)</div>
+      <div className="flex items-center"><div className="w-3 h-3 rounded-full border-2 border-dashed border-sky-400 mr-2"></div> Moved (Old Position)</div>
+      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-purple-500 border border-purple-300 mr-2"></div> Changed</div>
+      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-gray-800 border border-gray-600 opacity-60 mr-2"></div> Unchanged</div>
+    </div>
+  </div>
+);
 
 
 const App: React.FC = () => {
@@ -22,7 +37,7 @@ const App: React.FC = () => {
   const [cachedStates, setCachedStates] = useState<Map<string, GardenState>>(new Map());
   
   const [activeGardenState, setActiveGardenState] = useState<GardenState | null>(null);
-  const [selectedTree, setSelectedTree] = useState<Tree | null>(null);
+  const [selectedTree, setSelectedTree] = useState<Tree | DiffTree | null>(null);
 
   const [editedTrees, setEditedTrees] = useState<Tree[] | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -38,7 +53,12 @@ const App: React.FC = () => {
   
   const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
   const lastPinchDistRef = useRef<number>(0);
-
+  
+  // New state for compare mode
+  const [isCompareMode, setIsCompareMode] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
+  const [compareDates, setCompareDates] = useState({ dateA: '', dateB: '' });
+  const [diffs, setDiffs] = useState<DiffTree[] | null>(null);
 
   useEffect(() => {
     const getStoredHistory = (): GardenState[] => {
@@ -49,27 +69,19 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
       let manifestMap = new Map<string, string>();
       try {
-        const manifestUrl = import.meta.env.BASE_URL + 'data/manifest.json';
-        const response = await fetch(manifestUrl);
+        const response = await fetch('/data/manifest.json');
         if (!response.ok) throw new Error('Failed to fetch manifest');
         const manifest = await response.json();
-
+        
         manifest.versions.forEach((v: {date: string, path: string}) => {
-          // Asegura que la ruta sea relativa a BASE_URL
-          manifestMap.set(v.date, import.meta.env.BASE_URL + v.path.replace(/^data\//, 'data/'));
+          manifestMap.set(v.date, v.path);
         });
         setManifestVersions(manifestMap);
       } catch (error) {
         console.error("Could not load manifest.json:", error);
         alert("Could not load base garden history. Only showing locally saved versions.");
-      // Para soporte de import.meta.env.BASE_URL en TypeScript
-      interface ImportMeta {
-        env: {
-          BASE_URL: string;
-        };
       }
-      }
-
+      
       const storedHistory = getStoredHistory();
       const localStates = new Map<string, GardenState>();
       storedHistory.forEach(state => {
@@ -79,7 +91,7 @@ const App: React.FC = () => {
 
       const allDates = [...new Set([...manifestMap.keys(), ...localStates.keys()])];
       allDates.sort((a, b) => b.localeCompare(a)); // Newest first
-
+      
       setAvailableDates(allDates);
 
       if (allDates.length > 0) {
@@ -89,39 +101,90 @@ const App: React.FC = () => {
 
     loadInitialData();
   }, []);
+  
+  const fetchAndCacheState = useCallback(async (date: string): Promise<GardenState | null> => {
+    if (cachedStates.has(date)) return cachedStates.get(date)!;
+    
+    if (manifestVersions.has(date)) {
+        try {
+            const path = manifestVersions.get(date)!;
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`Failed to fetch ${path}`);
+            const gardenState: GardenState = await response.json();
+            
+            setCachedStates(prev => new Map(prev).set(date, gardenState));
+            return gardenState;
+        } catch (error) {
+            console.error(`Error loading garden state for ${date}:`, error);
+            alert(`Could not load data for ${date}.`);
+            return null;
+        }
+    }
+    return null;
+  }, [cachedStates, manifestVersions]);
 
   useEffect(() => {
-    if (!selectedDate) return;
+    if (!selectedDate || isCompareMode) return;
 
     const loadGardenState = async () => {
-      // 1. Check cache first (includes localStorage data)
-      if (cachedStates.has(selectedDate)) {
-        setActiveGardenState(cachedStates.get(selectedDate)!);
-        setEditedTrees(null); // Clear edits when changing date
+      const state = await fetchAndCacheState(selectedDate);
+      setActiveGardenState(state);
+      setEditedTrees(null);
+    };
+    loadGardenState();
+  }, [selectedDate, fetchAndCacheState, isCompareMode]);
+  
+  useEffect(() => {
+    if (!isCompareMode || !compareDates.dateA || !compareDates.dateB) {
+      setDiffs(null);
+      return;
+    }
+
+    const computeDiffs = async () => {
+      setIsComparing(true);
+      const stateA = await fetchAndCacheState(compareDates.dateA);
+      const stateB = await fetchAndCacheState(compareDates.dateB);
+
+      if (!stateA || !stateB) {
+        setDiffs([]);
+        setIsComparing(false);
         return;
       }
 
-      // 2. If not in cache, check manifest and fetch from file
-      if (manifestVersions.has(selectedDate)) {
-        try {
-          const path = manifestVersions.get(selectedDate)!;
-          const response = await fetch(path);
-          if (!response.ok) throw new Error(`Failed to fetch ${path}`);
-          const gardenState: GardenState = await response.json();
+      const treesA = new Map(stateA.trees.map(t => [t.uuid, t]));
+      const treesB = new Map(stateB.trees.map(t => [t.uuid, t]));
+      const newDiffs: DiffTree[] = [];
 
-          setCachedStates(prev => new Map(prev).set(selectedDate, gardenState));
-          setActiveGardenState(gardenState);
-          setEditedTrees(null); // Clear edits when changing date
-        } catch (error) {
-          console.error(`Error loading garden state for ${selectedDate}:`, error);
-          alert(`Could not load data for ${selectedDate}.`);
-          setActiveGardenState(null);
+      for (const [uuid, treeB] of treesB.entries()) {
+        const treeA = treesA.get(uuid);
+        if (!treeA) {
+          newDiffs.push({ ...treeB, diffStatus: TreeDiffStatus.Added });
+        } else {
+          const isMoved = treeA.position.x !== treeB.position.x || treeA.position.y !== treeB.position.y;
+          const isChanged = treeA.name !== treeB.name || treeA.status !== treeB.status || treeA.size !== treeB.size;
+
+          if (isMoved || isChanged) {
+            const status = isMoved ? TreeDiffStatus.Moved : TreeDiffStatus.Changed;
+            newDiffs.push({ ...treeB, diffStatus: status, previous: treeA });
+          } else {
+            newDiffs.push({ ...treeB, diffStatus: TreeDiffStatus.Unchanged });
+          }
         }
       }
+      
+      for (const [uuid, treeA] of treesA.entries()) {
+        if (!treesB.has(uuid)) {
+          newDiffs.push({ ...treeA, diffStatus: TreeDiffStatus.Removed });
+        }
+      }
+
+      setDiffs(newDiffs);
+      setIsComparing(false);
     };
-    loadGardenState();
-  }, [selectedDate, cachedStates, manifestVersions]);
-  
+
+    computeDiffs();
+  }, [isCompareMode, compareDates, fetchAndCacheState]);
+
   const updateLocalStorageHistory = (newState: GardenState) => {
     const storedHistoryJSON = localStorage.getItem('gardenHistory');
     const storedHistory: GardenState[] = storedHistoryJSON ? JSON.parse(storedHistoryJSON) : [];
@@ -146,17 +209,45 @@ const App: React.FC = () => {
   };
 
   const handleToggleEditMode = () => {
+    if (isCompareMode) return;
     setIsEditMode(prev => {
-        if (prev) { // Was editing, now exiting
+        if (prev) {
             setEditedTrees(null);
             setIsAddingTree(false);
             setMovingTreeUuid(null);
             return false;
-        } else { // Was viewing, now entering edit
+        } else {
             setEditedTrees(JSON.parse(JSON.stringify(activeGardenState!.trees)));
             return true;
         }
     });
+  };
+
+  const handleToggleCompareMode = () => {
+    setIsCompareMode(prev => {
+      const newMode = !prev;
+      if (newMode) { // Entering compare mode
+        if (isEditMode) {
+          setIsEditMode(false);
+          setEditedTrees(null);
+          setIsAddingTree(false);
+          setMovingTreeUuid(null);
+        }
+        if (availableDates.length >= 2) {
+          const sorted = [...availableDates].sort((a,b) => a.localeCompare(b));
+          setCompareDates({ dateA: sorted[sorted.length - 2], dateB: sorted[sorted.length - 1] });
+        } else if (availableDates.length === 1) {
+          setCompareDates({ dateA: availableDates[0], dateB: availableDates[0] });
+        }
+      } else { // Exiting compare mode
+        setDiffs(null);
+      }
+      return newMode;
+    });
+  };
+
+  const handleCompareDateChange = (which: 'dateA' | 'dateB', value: string) => {
+    setCompareDates(prev => ({...prev, [which]: value}));
   };
   
   const handleToggleAddTreeMode = () => {
@@ -254,8 +345,9 @@ const App: React.FC = () => {
       reader.readAsText(file);
   };
   
-  const handleTreeClick = (tree: Tree) => {
+  const handleTreeClick = (tree: Tree | DiffTree) => {
     if (isAddingTree || movingTreeUuid) return;
+    if (isCompareMode && (tree as DiffTree).diffStatus === TreeDiffStatus.Unchanged) return; // Don't open modal for unchanged trees in compare mode
     setSelectedTree(tree);
   };
   
@@ -437,7 +529,7 @@ const App: React.FC = () => {
       lastPinchDistRef.current = 0;
   };
 
-  const treesToDisplay = editedTrees ?? activeGardenState?.trees ?? [];
+  const treesToDisplay = isCompareMode ? (diffs ?? []) : (editedTrees ?? activeGardenState?.trees ?? []);
 
   return (
     <div className="w-screen h-screen overflow-hidden flex flex-col font-sans">
@@ -454,27 +546,38 @@ const App: React.FC = () => {
         onImportRequest={handleImportRequest}
         isMovingTree={!!movingTreeUuid}
         onCancelMove={handleCancelMove}
+        isCompareMode={isCompareMode}
+        onToggleCompareMode={handleToggleCompareMode}
+        compareDates={compareDates}
+        onCompareDateChange={handleCompareDateChange}
+        isComparing={isComparing}
       />
-      <div 
-        ref={mapContainerRef}
-        className={`flex-grow w-full h-full bg-cover bg-center ${isAddingTree || movingTreeUuid ? 'cursor-crosshair' : 'cursor-auto'}`}
-        style={{ backgroundImage: 'url("https://storage.googleapis.com/generative-ai-projen-dev-public/user-assets/garden-map-background.png")' }}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onClick={handleMapClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div className="flex-grow w-full h-full flex justify-center items-center p-2 bg-gray-200">
         <div 
-            className="relative w-full h-full origin-top-left"
-            style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, touchAction: 'none' }}
+          ref={mapContainerRef}
+          className={`relative w-full h-full max-w-full max-h-full bg-cover bg-center shadow-lg rounded-md overflow-hidden ${isAddingTree || movingTreeUuid ? 'cursor-crosshair' : isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+          style={{ 
+            backgroundImage: 'url("https://storage.googleapis.com/generative-ai-projen-dev-public/user-assets/garden-map-background.png")',
+            aspectRatio: '4961 / 3508'
+          }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onClick={handleMapClick}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          <GardenMap
-            trees={treesToDisplay}
-            isEditMode={isEditMode}
-            onTreeClick={handleTreeClick}
-          />
+          <div 
+              className="relative w-full h-full origin-top-left"
+              style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, touchAction: 'none' }}
+          >
+            <GardenMap
+              trees={treesToDisplay}
+              isEditMode={isEditMode}
+              onTreeClick={handleTreeClick}
+              isCompareMode={isCompareMode}
+            />
+          </div>
         </div>
       </div>
       <TreeInfoModal
@@ -484,6 +587,7 @@ const App: React.FC = () => {
         onSave={handleSaveTree}
         onDelete={handleDeleteTree}
         onMoveRequest={handleStartMoveTree}
+        isCompareMode={isCompareMode}
       />
 
       {isSaveModalOpen && (
@@ -532,6 +636,8 @@ const App: React.FC = () => {
         accept="application/json"
       />
       
+      {isCompareMode && <CompareLegend />}
+
       <div className="absolute bottom-4 right-4 z-20 flex items-end gap-2">
         <div className="grid grid-cols-3 gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-lg">
           <div className="col-start-2 flex justify-center">
