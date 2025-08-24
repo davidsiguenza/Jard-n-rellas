@@ -86,7 +86,7 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
       let manifestMap = new Map<string, string>();
       try {
-        const response = await fetch('/data/manifest.json');
+        const response = await fetch('data/manifest.json');
         if (!response.ok) throw new Error('Failed to fetch manifest');
         const manifest = await response.json();
         
