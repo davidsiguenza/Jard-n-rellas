@@ -9,6 +9,7 @@ interface GardenMapProps {
   isEditMode: boolean;
   onTreeClick: (tree: Tree | DiffTree) => void;
   isCompareMode: boolean;
+  highlightedFilter: string;
 }
 
 const GardenMap: React.FC<GardenMapProps> = ({
@@ -16,6 +17,7 @@ const GardenMap: React.FC<GardenMapProps> = ({
   isEditMode,
   onTreeClick,
   isCompareMode,
+  highlightedFilter,
 }) => {
   const sizeDimensions: Record<string, string> = {
     'xs': '8px', 's': '10px', 'm': '12px', 'l': '14px', 'xl': '16px',
@@ -60,7 +62,7 @@ const GardenMap: React.FC<GardenMapProps> = ({
                 {/* Old position marker */}
                 <div
                   title={`Previous position of ${tree.name}`}
-                  className="absolute rounded-full transform -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-sky-400 opacity-70 bg-white/50"
+                  className="absolute rounded-full transform -translate-x-1/2 -translate-y-1/2 border border-dashed border-sky-400 opacity-70 bg-white/50"
                   style={{ 
                     top: `${tree.previous.position.y}%`, 
                     left: `${tree.previous.position.x}%`,
@@ -69,11 +71,11 @@ const GardenMap: React.FC<GardenMapProps> = ({
                   }}
                 />
                 {/* New position marker */}
-                <TreeMarker tree={tree} onClick={onTreeClick} isEditMode={isEditMode} isCompareMode={isCompareMode} />
+                <TreeMarker tree={tree} onClick={onTreeClick} isEditMode={isEditMode} isCompareMode={isCompareMode} highlightedFilter={highlightedFilter} />
               </React.Fragment>
             );
           }
-          return <TreeMarker key={tree.uuid} tree={tree} onClick={onTreeClick} isEditMode={isEditMode} isCompareMode={isCompareMode} />;
+          return <TreeMarker key={tree.uuid} tree={tree} onClick={onTreeClick} isEditMode={isEditMode} isCompareMode={isCompareMode} highlightedFilter={highlightedFilter} />;
         })}
       </div>
     </div>

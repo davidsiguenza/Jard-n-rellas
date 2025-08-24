@@ -1,33 +1,45 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GardenState, Tree, TreeSize, TreeStatus, DiffTree, TreeDiffStatus } from './types';
 import { TREE_NAMES } from './constants';
 import GardenMap from './GardenMap';
 import Toolbar from './components/Toolbar';
 import TreeInfoModal from './components/TreeInfoModal';
-import { PlusIcon, MinusIcon, FitScreenIcon, ArrowUpIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './components/icons';
+import { PlusIcon, MinusIcon, FitScreenIcon, ArrowUpIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './components/icons/index';
+import { useLanguage } from './i18n/LanguageContext';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 5;
 const ZOOM_SENSITIVITY = 0.001;
 const PAN_STEP = 50;
 
-const CompareLegend: React.FC = () => (
-  <div className="absolute bottom-4 left-4 z-20 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-lg text-xs text-gray-700">
-    <h3 className="font-bold mb-2 text-sm">Comparison Legend</h3>
-    <div className="space-y-1">
-      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-green-500 border border-green-300 mr-2"></div> Added</div>
-      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-500 border border-red-300 mr-2"></div> Removed</div>
-      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-500 border border-blue-300 mr-2"></div> Moved (New Position)</div>
-      <div className="flex items-center"><div className="w-3 h-3 rounded-full border-2 border-dashed border-sky-400 mr-2"></div> Moved (Old Position)</div>
-      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-purple-500 border border-purple-300 mr-2"></div> Changed</div>
-      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-gray-800 border border-gray-600 opacity-60 mr-2"></div> Unchanged</div>
-    </div>
-  </div>
-);
+// Helper functions for touch controls
+const getTouchDistance = (t1: React.Touch, t2: React.Touch) => {
+    return Math.sqrt(Math.pow(t1.clientX - t2.clientX, 2) + Math.pow(t1.clientY - t2.clientY, 2));
+};
 
+const getTouchMidpoint = (t1: React.Touch, t2: React.Touch) => {
+    return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+};
+
+const CompareLegend: React.FC = () => {
+  const { t } = useLanguage();
+  return (
+    <div className="absolute bottom-4 left-4 z-20 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-lg text-xs text-gray-700">
+      <h3 className="font-bold mb-2 text-sm">{t('compareLegendTitle')}</h3>
+      <div className="space-y-1">
+        <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-green-500 border border-green-300 mr-2"></div> {t('legendAdded')}</div>
+        <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-500 border border-red-300 mr-2"></div> {t('legendRemoved')}</div>
+        <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-500 border border-blue-300 mr-2"></div> {t('legendMovedNew')}</div>
+        <div className="flex items-center"><div className="w-3 h-3 rounded-full border-2 border-dashed border-sky-400 mr-2"></div> {t('legendMovedOld')}</div>
+        <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-purple-500 border border-purple-300 mr-2"></div> {t('legendModified')}</div>
+        <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-gray-800 border border-gray-600 opacity-60 mr-2"></div> {t('legendUnchanged')}</div>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
+  const { t, lng } = useLanguage();
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [isAddingTree, setIsAddingTree] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -52,13 +64,18 @@ const App: React.FC = () => {
   const [isPanning, setIsPanning] = useState(false);
   
   const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
-  const lastPinchDistRef = useRef<number>(0);
+  const pinchStartRef = useRef<{
+    dist: number;
+    midpoint: { x: number; y: number };
+    pan: { x: number; y: number };
+    zoom: number;
+  } | null>(null);
   
-  // New state for compare mode
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [isComparing, setIsComparing] = useState(false);
   const [compareDates, setCompareDates] = useState({ dateA: '', dateB: '' });
   const [diffs, setDiffs] = useState<DiffTree[] | null>(null);
+  const [highlightedFilter, setHighlightedFilter] = useState<string>('');
 
   useEffect(() => {
     const getStoredHistory = (): GardenState[] => {
@@ -79,7 +96,7 @@ const App: React.FC = () => {
         setManifestVersions(manifestMap);
       } catch (error) {
         console.error("Could not load manifest.json:", error);
-        alert("Could not load base garden history. Only showing locally saved versions.");
+        alert(t('alert_manifestError'));
       }
       
       const storedHistory = getStoredHistory();
@@ -90,7 +107,7 @@ const App: React.FC = () => {
       setCachedStates(localStates);
 
       const allDates = [...new Set([...manifestMap.keys(), ...localStates.keys()])];
-      allDates.sort((a, b) => b.localeCompare(a)); // Newest first
+      allDates.sort((a, b) => b.localeCompare(a)); 
       
       setAvailableDates(allDates);
 
@@ -100,7 +117,7 @@ const App: React.FC = () => {
     };
 
     loadInitialData();
-  }, []);
+  }, [t]);
   
   const fetchAndCacheState = useCallback(async (date: string): Promise<GardenState | null> => {
     if (cachedStates.has(date)) return cachedStates.get(date)!;
@@ -116,12 +133,12 @@ const App: React.FC = () => {
             return gardenState;
         } catch (error) {
             console.error(`Error loading garden state for ${date}:`, error);
-            alert(`Could not load data for ${date}.`);
+            alert(t('alert_loadStateError', { date }));
             return null;
         }
     }
     return null;
-  }, [cachedStates, manifestVersions]);
+  }, [cachedStates, manifestVersions, t]);
 
   useEffect(() => {
     if (!selectedDate || isCompareMode) return;
@@ -195,8 +212,9 @@ const App: React.FC = () => {
   };
 
   const handleDateChange = (date: string) => {
+    setHighlightedFilter('');
     if (isEditMode) {
-      if (confirm("You are in Edit Mode with unsaved changes. Are you sure you want to switch dates and discard them?")) {
+      if (confirm(t('alert_changeDateWarning'))) {
           setIsEditMode(false);
           setEditedTrees(null);
           setIsAddingTree(false);
@@ -209,6 +227,7 @@ const App: React.FC = () => {
   };
 
   const handleToggleEditMode = () => {
+    setHighlightedFilter('');
     if (isCompareMode) return;
     setIsEditMode(prev => {
         if (prev) {
@@ -224,9 +243,10 @@ const App: React.FC = () => {
   };
 
   const handleToggleCompareMode = () => {
+    setHighlightedFilter('');
     setIsCompareMode(prev => {
       const newMode = !prev;
-      if (newMode) { // Entering compare mode
+      if (newMode) {
         if (isEditMode) {
           setIsEditMode(false);
           setEditedTrees(null);
@@ -239,7 +259,7 @@ const App: React.FC = () => {
         } else if (availableDates.length === 1) {
           setCompareDates({ dateA: availableDates[0], dateB: availableDates[0] });
         }
-      } else { // Exiting compare mode
+      } else { 
         setDiffs(null);
       }
       return newMode;
@@ -254,6 +274,10 @@ const App: React.FC = () => {
     setIsAddingTree(prev => !prev);
     if (movingTreeUuid) setMovingTreeUuid(null);
   }
+
+  const handleHighlightFilterChange = (filter: string) => {
+    setHighlightedFilter(filter);
+  };
 
   const downloadGardenState = (gardenState: GardenState) => {
     const dataStr = JSON.stringify(gardenState, null, 2);
@@ -279,11 +303,11 @@ const App: React.FC = () => {
   
   const handleSaveNewVersion = () => {
       if (!newVersionDate) {
-          alert('Please select a date.');
+          alert(t('alert_selectDate'));
           return;
       }
       if (availableDates.includes(newVersionDate)) {
-          if (!confirm(`A version for ${newVersionDate} already exists. Overwrite it?`)) {
+          if (!confirm(t('alert_overwriteVersion', { date: newVersionDate }))) {
               return;
           }
       }
@@ -318,11 +342,11 @@ const App: React.FC = () => {
               const importedState: GardenState = JSON.parse(result);
 
               if (!importedState.date || !Array.isArray(importedState.trees)) {
-                  throw new Error('Invalid file format. Missing "date" or "trees" property.');
+                  throw new Error(t('alert_invalidFileFormat'));
               }
 
               if (availableDates.includes(importedState.date)) {
-                  if (!confirm(`A version for date ${importedState.date} already exists. Overwrite it?`)) {
+                  if (!confirm(t('alert_overwriteVersion', { date: importedState.date }))) {
                       if (e.target) e.target.value = '';
                       return;
                   }
@@ -333,11 +357,12 @@ const App: React.FC = () => {
               setCachedStates(prev => new Map(prev).set(importedState.date, importedState));
               setAvailableDates(prev => [...new Set([importedState.date, ...prev])].sort((a, b) => b.localeCompare(a)));
 
-              alert(`Successfully imported garden state for ${importedState.date}`);
+              alert(t('alert_importSuccess', { date: importedState.date }));
               setSelectedDate(importedState.date);
           } catch (error) {
               console.error("Failed to import file:", error);
-              alert(`Failed to import file. Make sure it is a valid garden data JSON file. Error: ${error instanceof Error ? error.message : String(error)}`);
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              alert(t('alert_importError', { error: errorMessage }));
           } finally {
               if (e.target) e.target.value = '';
           }
@@ -346,16 +371,30 @@ const App: React.FC = () => {
   };
 
   const handleClearLocalStorage = () => {
-    if (confirm("Are you sure you want to clear all locally saved garden versions? This action cannot be undone.")) {
+    if (confirm(t('alert_clearLocalData'))) {
         localStorage.removeItem('gardenHistory');
-        alert("Local data has been cleared. The page will now reload.");
+        alert(t('alert_localDataCleared'));
         window.location.reload();
     }
   };
   
   const handleTreeClick = (tree: Tree | DiffTree) => {
     if (isAddingTree || movingTreeUuid) return;
-    if (isCompareMode && (tree as DiffTree).diffStatus === TreeDiffStatus.Unchanged) return; // Don't open modal for unchanged trees in compare mode
+    if (isCompareMode && (tree as DiffTree).diffStatus === TreeDiffStatus.Unchanged) return;
+    if (highlightedFilter) {
+        const [type, value] = highlightedFilter.split(':');
+        if (!type || !value) return;
+
+        const treeInfo = TREE_NAMES.get(tree.id);
+        let isHighlighted = false;
+        if (type === 'genus') {
+            isHighlighted = treeInfo?.genus?.[lng] === value;
+        } else if (type === 'species') {
+            isHighlighted = tree.id === parseInt(value, 10);
+        }
+
+        if(!isHighlighted) return;
+    }
     setSelectedTree(tree);
   };
   
@@ -473,6 +512,68 @@ const App: React.FC = () => {
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isAddingTree || movingTreeUuid) return;
+
+    if (e.touches.length === 1) {
+        if (pinchStartRef.current) return;
+        setIsPanning(true);
+        lastPanPointRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+        e.preventDefault();
+        setIsPanning(false);
+        lastPanPointRef.current = null;
+        
+        const dist = getTouchDistance(e.touches[0], e.touches[1]);
+        const midpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
+
+        pinchStartRef.current = { dist, midpoint, pan, zoom };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+      if (isAddingTree || movingTreeUuid) return;
+
+      if (e.touches.length === 1 && isPanning && lastPanPointRef.current) {
+          e.preventDefault();
+          const touch = e.touches[0];
+          const dx = touch.clientX - lastPanPointRef.current.x;
+          const dy = touch.clientY - lastPanPointRef.current.y;
+          setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+          lastPanPointRef.current = { x: touch.clientX, y: touch.clientY };
+      } else if (e.touches.length === 2 && pinchStartRef.current) {
+          e.preventDefault();
+          if (!mapContainerRef.current) return;
+
+          const { dist: startDist, midpoint: startMidpoint, pan: startPan, zoom: startZoom } = pinchStartRef.current;
+          const newDist = getTouchDistance(e.touches[0], e.touches[1]);
+          const newMidpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
+          const scale = newDist / startDist;
+          const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, startZoom * scale));
+          const panDx = newMidpoint.x - startMidpoint.x;
+          const panDy = newMidpoint.y - startMidpoint.y;
+          
+          const rect = mapContainerRef.current.getBoundingClientRect();
+          const zoomOriginX = startMidpoint.x - rect.left;
+          const zoomOriginY = startMidpoint.y - rect.top;
+          
+          const zoomAdjustedPanX = zoomOriginX - (zoomOriginX - startPan.x) * (newZoom / startZoom);
+          const zoomAdjustedPanY = zoomOriginY - (zoomOriginY - startPan.y) * (newZoom / startZoom);
+
+          setZoom(newZoom);
+          setPan({
+              x: zoomAdjustedPanX + panDx,
+              y: zoomAdjustedPanY + panDy,
+          });
+      }
+  };
+
+  const handleTouchEnd = () => {
+      pinchStartRef.current = null;
+      setIsPanning(false);
+      lastPanPointRef.current = null;
+  };
+
   const handleZoomIn = () => setZoom(z => Math.min(MAX_ZOOM, z + 0.2));
   const handleZoomOut = () => setZoom(z => Math.max(MIN_ZOOM, z - 0.2));
   const handleResetZoom = () => {
@@ -486,55 +587,6 @@ const App: React.FC = () => {
       case 'left': setPan(p => ({ ...p, x: p.x + PAN_STEP })); break;
       case 'right': setPan(p => ({ ...p, x: p.x - PAN_STEP })); break;
     }
-  };
-
-  const getPinchDistance = (touches: React.TouchList) => {
-    return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (isAddingTree || movingTreeUuid) return;
-    e.preventDefault();
-    if (e.touches.length === 1) {
-        setIsPanning(true);
-        lastPanPointRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else if (e.touches.length === 2) {
-        setIsPanning(false);
-        lastPinchDistRef.current = getPinchDistance(e.touches);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      if (e.touches.length === 1 && isPanning && lastPanPointRef.current) {
-          const dx = e.touches[0].clientX - lastPanPointRef.current.x;
-          const dy = e.touches[0].clientY - lastPanPointRef.current.y;
-          setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-          lastPanPointRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      } else if (e.touches.length === 2 && mapContainerRef.current) {
-          const newDist = getPinchDistance(e.touches);
-          const delta = newDist - lastPinchDistRef.current;
-          const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta * ZOOM_SENSITIVITY * 2));
-
-          const rect = mapContainerRef.current.getBoundingClientRect();
-          const t1 = e.touches[0];
-          const t2 = e.touches[1];
-          const midX = (t1.clientX + t2.clientX) / 2 - rect.left;
-          const midY = (t1.clientY + t2.clientY) / 2 - rect.top;
-
-          const newPanX = midX - (midX - pan.x) * (newZoom / zoom);
-          const newPanY = midY - (midY - pan.y) * (newZoom / zoom);
-
-          setZoom(newZoom);
-          setPan({ x: newPanX, y: newPanY });
-          lastPinchDistRef.current = newDist;
-      }
-  };
-
-  const handleTouchEnd = () => {
-      setIsPanning(false);
-      lastPanPointRef.current = null;
-      lastPinchDistRef.current = 0;
   };
 
   const treesToDisplay = isCompareMode ? (diffs ?? []) : (editedTrees ?? activeGardenState?.trees ?? []);
@@ -560,13 +612,14 @@ const App: React.FC = () => {
         onCompareDateChange={handleCompareDateChange}
         isComparing={isComparing}
         onClearLocalStorage={handleClearLocalStorage}
+        highlightedFilter={highlightedFilter}
+        onHighlightFilterChange={handleHighlightFilterChange}
       />
-      <div className="flex-grow w-full h-full flex justify-center items-center p-2 bg-gray-200">
+      <div className="flex-grow w-full h-full relative p-2 bg-gray-200" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
         <div 
           ref={mapContainerRef}
-          className={`relative w-full h-full max-w-full max-h-full bg-cover bg-center shadow-lg rounded-md overflow-hidden ${isAddingTree || movingTreeUuid ? 'cursor-crosshair' : isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-full max-h-full shadow-lg rounded-md overflow-hidden ${isAddingTree || movingTreeUuid ? 'cursor-crosshair' : isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{ 
-            backgroundImage: 'url("https://storage.googleapis.com/generative-ai-projen-dev-public/user-assets/garden-map-background.png")',
             aspectRatio: '4961 / 3508'
           }}
           onWheel={handleWheel}
@@ -580,11 +633,17 @@ const App: React.FC = () => {
               className="relative w-full h-full origin-top-left"
               style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, touchAction: 'none' }}
           >
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: 'url("https://storage.googleapis.com/generative-ai-projen-dev-public/user-assets/garden-map-background.png")' }}
+              aria-hidden="true"
+            />
             <GardenMap
               trees={treesToDisplay}
               isEditMode={isEditMode}
               onTreeClick={handleTreeClick}
               isCompareMode={isCompareMode}
+              highlightedFilter={highlightedFilter}
             />
           </div>
         </div>
@@ -605,12 +664,12 @@ const App: React.FC = () => {
                 <button onClick={() => setIsSaveModalOpen(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
                     <CloseIcon className="w-6 h-6" />
                 </button>
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Save New Version</h2>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">{t('saveModalTitle')}</h2>
                 <p className="text-sm text-gray-600 mb-4">
-                    Enter a date for this new version of the garden. This will create a new entry in the history.
+                   {t('saveModalDescription')}
                 </p>
                 <div>
-                    <label htmlFor="version-date" className="block text-sm font-medium text-gray-700">Date</label>
+                    <label htmlFor="version-date" className="block text-sm font-medium text-gray-700">{t('dateLabel')}</label>
                     <input
                         type="date"
                         id="version-date"
@@ -624,13 +683,13 @@ const App: React.FC = () => {
                         onClick={() => setIsSaveModalOpen(false)}
                         className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
                     >
-                        Cancel
+                        {t('cancel')}
                     </button>
                     <button
                         onClick={handleSaveNewVersion}
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                        Save & Download
+                        {t('saveAndDownload')}
                     </button>
                 </div>
             </div>
@@ -648,26 +707,27 @@ const App: React.FC = () => {
       {isCompareMode && <CompareLegend />}
 
       <div className="absolute bottom-4 right-4 z-20 flex items-end gap-2">
-        <div className="grid grid-cols-3 gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-lg">
-          <div className="col-start-2 flex justify-center">
-            <button onClick={() => handlePanButtonClick('up')} className="p-2 rounded hover:bg-gray-200 transition-colors"><ArrowUpIcon className="w-5 h-5" /></button>
+        <div className="grid grid-cols-3 grid-rows-3 gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-lg">
+          <div className="col-start-2 row-start-1 flex justify-center">
+            <button onClick={() => handlePanButtonClick('up')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanUp')}><ArrowUpIcon className="w-5 h-5" /></button>
           </div>
-          <div className="flex justify-center">
-            <button onClick={() => handlePanButtonClick('left')} className="p-2 rounded hover:bg-gray-200 transition-colors"><ArrowLeftIcon className="w-5 h-5" /></button>
+          <div className="col-start-1 row-start-2 flex justify-center">
+            <button onClick={() => handlePanButtonClick('left')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanLeft')}><ArrowLeftIcon className="w-5 h-5" /></button>
           </div>
-          <div/>
-          <div className="flex justify-center">
-            <button onClick={() => handlePanButtonClick('right')} className="p-2 rounded hover:bg-gray-200 transition-colors"><ArrowRightIcon className="w-5 h-5" /></button>
+          <div className="col-start-2 row-start-2 flex justify-center">
+            <button onClick={handleResetZoom} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navReset')}><FitScreenIcon className="w-5 h-5" /></button>
           </div>
-          <div className="col-start-2 flex justify-center">
-            <button onClick={() => handlePanButtonClick('down')} className="p-2 rounded hover:bg-gray-200 transition-colors"><ArrowDownIcon className="w-5 h-5" /></button>
+          <div className="col-start-3 row-start-2 flex justify-center">
+            <button onClick={() => handlePanButtonClick('right')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanRight')}><ArrowRightIcon className="w-5 h-5" /></button>
+          </div>
+          <div className="col-start-2 row-start-3 flex justify-center">
+            <button onClick={() => handlePanButtonClick('down')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanDown')}><ArrowDownIcon className="w-5 h-5" /></button>
           </div>
         </div>
 
         <div className="flex flex-col bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-lg">
-            <button onClick={handleZoomIn} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label="Zoom In"><PlusIcon className="w-5 h-5" /></button>
-            <button onClick={handleZoomOut} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label="Zoom Out"><MinusIcon className="w-5 h-5" /></button>
-            <button onClick={handleResetZoom} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label="Reset Zoom"><FitScreenIcon className="w-5 h-5" /></button>
+            <button onClick={handleZoomIn} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navZoomIn')}><PlusIcon className="w-5 h-5" /></button>
+            <button onClick={handleZoomOut} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navZoomOut')}><MinusIcon className="w-5 h-5" /></button>
         </div>
       </div>
     </div>

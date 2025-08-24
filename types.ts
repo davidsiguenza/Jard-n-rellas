@@ -16,7 +16,7 @@ export enum TreeSize {
 export interface Tree {
   id: number;
   uuid: string;
-  name: string;
+  name: string; // Stored primarily in Spanish for data consistency
   position: {
     x: number;
     y: number;
@@ -42,3 +42,5 @@ export interface DiffTree extends Tree {
   diffStatus: TreeDiffStatus;
   previous?: Tree; // To store old state for moved/changed trees
 }
+
+export type Language = 'es' | 'gl';
