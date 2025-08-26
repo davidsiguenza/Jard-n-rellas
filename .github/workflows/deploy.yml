@@ -40,10 +40,11 @@ jobs:
       # Ve a Settings > Secrets and variables > Actions, y crea un nuevo "Repository secret"
       # con el nombre "GEMINI_API_KEY" y el valor de tu clave.
       # El siguiente paso de "Build" usará esa clave de forma segura.
+      # Descomenta las siguientes líneas si tu aplicación necesita la API key para el proceso de build
       - name: Build
         run: npm run build
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        # env:
+        #   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
