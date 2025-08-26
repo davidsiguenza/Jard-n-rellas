@@ -1,4 +1,3 @@
-
 {
   "date": "2025-08-20",
   "trees": [
@@ -11,8 +10,7 @@
         "y": 46.97
       },
       "status": "identified",
-      "size": "l",
-      "notes": "Revisar el estado de las ramas en otoño."
+      "size": "l"
     },
     {
       "id": 2,
@@ -23,8 +21,7 @@
         "y": 47.92
       },
       "status": "identified",
-      "size": "xl",
-      "notes": "Presenta buen crecimiento este año."
+      "size": "xl"
     },
     {
       "id": 3,
@@ -35,8 +32,7 @@
         "y": 49.17
       },
       "status": "identified",
-      "size": "m",
-      "notes": ""
+      "size": "m"
     },
     {
       "id": 3,
@@ -1341,8 +1337,8 @@
       "uuid": "svg-33-14",
       "name": "Manzano",
       "position": {
-        "x": 68.41,
-        "y": 39.2
+        "x": 63.85846160641096,
+        "y": 40.174942772902064
       },
       "status": "identified",
       "size": "m"
@@ -1396,8 +1392,8 @@
       "uuid": "svg-33-19",
       "name": "Manzano",
       "position": {
-        "x": 74.75,
-        "y": 39.36
+        "x": 71.35833255566885,
+        "y": 39.97195438937351
       },
       "status": "identified",
       "size": "m"
@@ -1407,8 +1403,8 @@
       "uuid": "svg-33-20",
       "name": "Manzano",
       "position": {
-        "x": 51.47,
-        "y": 46.56
+        "x": 51.342711701824115,
+        "y": 46.51470405148484
       },
       "status": "identified",
       "size": "m"
@@ -1429,8 +1425,8 @@
       "uuid": "svg-33-22",
       "name": "Manzano",
       "position": {
-        "x": 73.69,
-        "y": 39.38
+        "x": 68.66420415642087,
+        "y": 40.12419567701993
       },
       "status": "identified",
       "size": "m"
@@ -1561,30 +1557,30 @@
       "uuid": "svg-35-11",
       "name": "Peral",
       "position": {
-        "x": 77.11,
-        "y": 40.15
+        "x": 72.2685110689283,
+        "y": 40.07344858113779
       },
       "status": "identified",
-      "size": "m"
+      "size": "s"
     },
     {
       "id": 35,
       "uuid": "svg-35-12",
       "name": "Peral",
       "position": {
-        "x": 77.92,
-        "y": 40.15
+        "x": 73.20303226691817,
+        "y": 40.139716072171815
       },
       "status": "identified",
-      "size": "m"
+      "size": "s"
     },
     {
       "id": 35,
       "uuid": "svg-35-13",
       "name": "Peral",
       "position": {
-        "x": 78.69,
-        "y": 40.18
+        "x": 74.81614870401772,
+        "y": 40.11013071968688
       },
       "status": "identified",
       "size": "s"
@@ -1693,11 +1689,11 @@
       "uuid": "svg-37-1",
       "name": "Membrillo",
       "position": {
-        "x": 84.97,
-        "y": 40.4
+        "x": 81.7992448593565,
+        "y": 40.40598424453623
       },
       "status": "identified",
-      "size": "m"
+      "size": "s"
     },
     {
       "id": 37,
@@ -1737,11 +1733,11 @@
       "uuid": "svg-37-5",
       "name": "Membrillo",
       "position": {
-        "x": 86.71,
-        "y": 40.81
+        "x": 82.90295610579305,
+        "y": 40.31722818708142
       },
       "status": "identified",
-      "size": "m"
+      "size": "s"
     },
     {
       "id": 38,
@@ -1913,11 +1909,11 @@
       "uuid": "svg-40-4",
       "name": "Castaño",
       "position": {
-        "x": 80.39,
-        "y": 40.11
+        "x": 78.31830938982593,
+        "y": 40.3763988920513
       },
       "status": "identified",
-      "size": "m"
+      "size": "s"
     },
     {
       "id": 40,
@@ -1942,14 +1938,14 @@
       "size": "m"
     },
     {
-      "id": 41,
+      "id": 33,
       "uuid": "svg-41-1",
-      "name": "Claudia (Ciruelo)",
+      "name": "Manzano",
       "position": {
-        "x": 71.71,
-        "y": 39.27
+        "x": 65.93366861664252,
+        "y": 40.022701485255645
       },
-      "status": "unidentified",
+      "status": "identified",
       "size": "m"
     },
     {
@@ -2031,14 +2027,58 @@
     },
     {
       "id": 0,
-      "uuid": "new-tree-1",
-      "name": "New Oak",
+      "uuid": "svg-?-1",
+      "name": "???",
       "position": {
-        "x": 30,
-        "y": 50
+        "x": 78.71,
+        "y": 67.66
       },
-      "status": "identified",
+      "status": "unidentified",
+      "size": "l"
+    },
+    {
+      "id": 38,
+      "uuid": "svg-38-cut-1",
+      "name": "Nogal",
+      "position": {
+        "x": 63.61,
+        "y": 49.38
+      },
+      "status": "to_be_cut",
       "size": "s"
+    },
+    {
+      "id": 38,
+      "uuid": "svg-38-cut-2",
+      "name": "Nogal",
+      "position": {
+        "x": 60.38,
+        "y": 60.19
+      },
+      "status": "to_be_cut",
+      "size": "m"
+    },
+    {
+      "id": 36,
+      "uuid": "svg-36-cut-1",
+      "name": "Cerezo",
+      "position": {
+        "x": 68.37,
+        "y": 50.69
+      },
+      "status": "to_be_cut",
+      "size": "xl"
+    },
+    {
+      "id": 0,
+      "uuid": "tree-1755765133124",
+      "name": "New Tree",
+      "position": {
+        "x": 52.458203658537414,
+        "y": 46.82567589084614
+      },
+      "status": "to_be_cut",
+      "size": "m"
     }
   ]
 }

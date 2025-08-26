@@ -23,7 +23,6 @@ export interface Tree {
   };
   status: TreeStatus;
   size: TreeSize;
-  notes?: string;
 }
 
 export interface GardenState {

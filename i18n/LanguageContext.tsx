@@ -22,8 +22,8 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     if (!translations) {
       const fetchTranslations = async () => {
         try {
-          const esPromise = fetch('i18n/locales/es.json').then(res => res.json());
-          const glPromise = fetch('i18n/locales/gl.json').then(res => res.json());
+          const esPromise = fetch('/i18n/locales/es.json').then(res => res.json());
+          const glPromise = fetch('/i18n/locales/gl.json').then(res => res.json());
 
           const [es, gl] = await Promise.all([esPromise, glPromise]);
           

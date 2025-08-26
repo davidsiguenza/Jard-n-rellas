@@ -1,4 +1,4 @@
-import { Language, TreeStatus } from './types';
+import { Language } from './types';
 
 export interface TreeInfo {
   genus?: {
@@ -302,9 +302,3 @@ export const TREE_NAMES: Map<number, TreeInfo> = new Map([
 ]);
 
 export const MAP_IMAGE_URL = "https://storage.googleapis.com/generative-ai-projen-dev-public/user-assets/garden-map-background.png";
-
-export const statusColors: Record<TreeStatus, string> = {
-  [TreeStatus.Identified]: 'bg-yellow-900 border-yellow-700',
-  [TreeStatus.Unidentified]: 'bg-red-700 border-red-500',
-  [TreeStatus.ToBeCut]: 'bg-gray-500 border-gray-400',
-};

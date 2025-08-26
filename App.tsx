@@ -4,12 +4,8 @@ import { TREE_NAMES } from './constants';
 import GardenMap from './GardenMap';
 import Toolbar from './components/Toolbar';
 import TreeInfoModal from './components/TreeInfoModal';
-import { PlusIcon, MinusIcon, FitScreenIcon, ArrowUpIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, CloseIcon, InformationCircleIcon } from './components/icons/index';
+import { PlusIcon, MinusIcon, FitScreenIcon, ArrowUpIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './components/icons/index';
 import { useLanguage } from './i18n/LanguageContext';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import InfoPanel from './components/InfoPanel';
-import PdfLegend from './components/PdfLegend';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 5;
@@ -80,8 +76,6 @@ const App: React.FC = () => {
   const [compareDates, setCompareDates] = useState({ dateA: '', dateB: '' });
   const [diffs, setDiffs] = useState<DiffTree[] | null>(null);
   const [highlightedFilter, setHighlightedFilter] = useState<string>('');
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
 
   useEffect(() => {
     const getStoredHistory = (): GardenState[] => {
@@ -92,7 +86,7 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
       let manifestMap = new Map<string, string>();
       try {
-        const response = await fetch('data/manifest.json');
+        const response = await fetch('/data/manifest.json');
         if (!response.ok) throw new Error('Failed to fetch manifest');
         const manifest = await response.json();
         
@@ -174,8 +168,8 @@ const App: React.FC = () => {
         return;
       }
 
-      const treesA = new Map(stateA.trees.map((t: Tree) => [t.uuid, t]));
-      const treesB = new Map(stateB.trees.map((t: Tree) => [t.uuid, t]));
+      const treesA = new Map(stateA.trees.map(t => [t.uuid, t]));
+      const treesB = new Map(stateB.trees.map(t => [t.uuid, t]));
       const newDiffs: DiffTree[] = [];
 
       for (const [uuid, treeB] of treesB.entries()) {
@@ -184,7 +178,7 @@ const App: React.FC = () => {
           newDiffs.push({ ...treeB, diffStatus: TreeDiffStatus.Added });
         } else {
           const isMoved = treeA.position.x !== treeB.position.x || treeA.position.y !== treeB.position.y;
-          const isChanged = treeA.name !== treeB.name || treeA.status !== treeB.status || treeA.size !== treeB.size || (treeA.notes || '') !== (treeB.notes || '');
+          const isChanged = treeA.name !== treeB.name || treeA.status !== treeB.status || treeA.size !== treeB.size;
 
           if (isMoved || isChanged) {
             const status = isMoved ? TreeDiffStatus.Moved : TreeDiffStatus.Changed;
@@ -496,7 +490,6 @@ const App: React.FC = () => {
       position: { x: percentX, y: percentY },
       status: TreeStatus.Unidentified,
       size: TreeSize.S,
-      notes: '',
     };
     setSelectedTree(newTree);
     setIsAddingTree(false);
@@ -553,113 +546,98 @@ const App: React.FC = () => {
           if (!mapContainerRef.current) return;
 
           const { dist: startDist, midpoint: startMidpoint, pan: startPan, zoom: startZoom } = pinchStartRef.current;
-          const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
-          const zoomRatio = currentDist / startDist;
-          const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, startZoom * zoomRatio));
-
+          const newDist = getTouchDistance(e.touches[0], e.touches[1]);
+          const newMidpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
+          const scale = newDist / startDist;
+          const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, startZoom * scale));
+          const panDx = newMidpoint.x - startMidpoint.x;
+          const panDy = newMidpoint.y - startMidpoint.y;
+          
           const rect = mapContainerRef.current.getBoundingClientRect();
-          const currentMidpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
-          const startMapMidpointX = (startMidpoint.x - rect.left - startPan.x) / startZoom;
-          const startMapMidpointY = (startMidpoint.y - rect.top - startPan.y) / startZoom;
-
-          const newPanX = currentMidpoint.x - rect.left - startMapMidpointX * newZoom;
-          const newPanY = currentMidpoint.y - rect.top - startMapMidpointY * newZoom;
+          const zoomOriginX = startMidpoint.x - rect.left;
+          const zoomOriginY = startMidpoint.y - rect.top;
+          
+          const zoomAdjustedPanX = zoomOriginX - (zoomOriginX - startPan.x) * (newZoom / startZoom);
+          const zoomAdjustedPanY = zoomOriginY - (zoomOriginY - startPan.y) * (newZoom / startZoom);
 
           setZoom(newZoom);
-          setPan({ x: newPanX, y: newPanY });
+          setPan({
+              x: zoomAdjustedPanX + panDx,
+              y: zoomAdjustedPanY + panDy,
+          });
       }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchEnd = () => {
+      pinchStartRef.current = null;
       setIsPanning(false);
       lastPanPointRef.current = null;
-      if (e.touches.length < 2) {
-          pinchStartRef.current = null;
-      }
   };
 
-  const resetPanAndZoom = () => {
+  const handleZoomIn = () => setZoom(z => Math.min(MAX_ZOOM, z + 0.2));
+  const handleZoomOut = () => setZoom(z => Math.max(MIN_ZOOM, z - 0.2));
+  const handleResetZoom = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
   };
-  
-  const handleExportPdf = async () => {
-    setIsExportingPdf(true);
-    
-    // Allow React to render the off-screen component
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const mapContainer = document.getElementById('map-for-canvas');
-    const legendContainer = document.getElementById('legend-for-canvas');
-    const transformContainer = document.getElementById('map-transform-container');
-
-    if (!mapContainer || !legendContainer || !transformContainer) {
-      console.error("PDF export elements not found.");
-      setIsExportingPdf(false);
-      return;
-    }
-    
-    const originalTransform = transformContainer.style.transform;
-    transformContainer.style.transform = ''; // Reset for capture
-
-    try {
-        // Page 1: Map
-        const mapCanvas = await html2canvas(mapContainer, {
-          useCORS: true,
-          scale: 2,
-        });
-
-        // Page 2: Legend
-        const legendCanvas = await html2canvas(legendContainer, {
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            scale: 2,
-        });
-        
-        const pdf = new jsPDF({
-          orientation: mapCanvas.width > mapCanvas.height ? 'landscape' : 'portrait',
-          unit: 'px',
-          format: [mapCanvas.width, mapCanvas.height]
-        });
-
-        pdf.addImage(mapCanvas.toDataURL('image/png'), 'PNG', 0, 0, mapCanvas.width, mapCanvas.height);
-        
-        pdf.addPage([legendCanvas.width, legendCanvas.height], legendCanvas.width > legendCanvas.height ? 'landscape' : 'portrait');
-        pdf.addImage(legendCanvas.toDataURL('image/png'), 'PNG', 0, 0, legendCanvas.width, legendCanvas.height);
-        
-        pdf.save(`garden-map-${isCompareMode ? 'comparison' : selectedDate}.pdf`);
-
-    } catch(err) {
-      console.error("Error generating PDF:", err);
-      alert("Could not generate PDF.");
-    } finally {
-        transformContainer.style.transform = originalTransform;
-        setIsExportingPdf(false);
+  const handlePanButtonClick = (direction: 'up' | 'down' | 'left' | 'right') => {
+    switch (direction) {
+      case 'up': setPan(p => ({ ...p, y: p.y + PAN_STEP })); break;
+      case 'down': setPan(p => ({ ...p, y: p.y - PAN_STEP })); break;
+      case 'left': setPan(p => ({ ...p, x: p.x + PAN_STEP })); break;
+      case 'right': setPan(p => ({ ...p, x: p.x - PAN_STEP })); break;
     }
   };
-  
-  const treesToDisplay = isEditMode ? editedTrees : (isCompareMode ? diffs : activeGardenState?.trees);
+
+  const treesToDisplay = isCompareMode ? (diffs ?? []) : (editedTrees ?? activeGardenState?.trees ?? []);
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-gray-100">
-      <div
-        ref={mapContainerRef}
-        id="map-for-canvas"
-        className="relative w-full h-full cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown}
-        onWheel={handleWheel}
-        onClick={handleMapClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ touchAction: 'none' }}
-      >
-        <div
-          id="map-transform-container"
-          className="relative w-full h-full"
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'top left' }}
+    <div className="w-screen h-screen overflow-hidden flex flex-col font-sans">
+      <Toolbar
+        isEditMode={isEditMode}
+        onToggleEditMode={handleToggleEditMode}
+        isAddingTree={isAddingTree}
+        onToggleAddTreeMode={handleToggleAddTreeMode}
+        availableDates={availableDates}
+        selectedDate={selectedDate}
+        onDateChange={handleDateChange}
+        onDownload={handleDownloadCurrentView}
+        onSaveRequest={handleSaveRequest}
+        onImportRequest={handleImportRequest}
+        isMovingTree={!!movingTreeUuid}
+        onCancelMove={handleCancelMove}
+        isCompareMode={isCompareMode}
+        onToggleCompareMode={handleToggleCompareMode}
+        compareDates={compareDates}
+        onCompareDateChange={handleCompareDateChange}
+        isComparing={isComparing}
+        onClearLocalStorage={handleClearLocalStorage}
+        highlightedFilter={highlightedFilter}
+        onHighlightFilterChange={handleHighlightFilterChange}
+      />
+      <div className="flex-grow w-full h-full relative p-2 bg-gray-200" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+        <div 
+          ref={mapContainerRef}
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-full max-h-full shadow-lg rounded-md overflow-hidden ${isAddingTree || movingTreeUuid ? 'cursor-crosshair' : isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+          style={{ 
+            aspectRatio: '4961 / 3508'
+          }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onClick={handleMapClick}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {treesToDisplay && (
+          <div 
+              className="relative w-full h-full origin-top-left"
+              style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, touchAction: 'none' }}
+          >
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: 'url("https://storage.googleapis.com/generative-ai-projen-dev-public/user-assets/garden-map-background.png")' }}
+              aria-hidden="true"
+            />
             <GardenMap
               trees={treesToDisplay}
               isEditMode={isEditMode}
@@ -667,126 +645,91 @@ const App: React.FC = () => {
               isCompareMode={isCompareMode}
               highlightedFilter={highlightedFilter}
             />
-          )}
+          </div>
         </div>
-        {isCompareMode && !isExportingPdf && <CompareLegend />}
       </div>
+      <TreeInfoModal
+        tree={selectedTree}
+        onClose={handleCloseModal}
+        isEditMode={isEditMode}
+        onSave={handleSaveTree}
+        onDelete={handleDeleteTree}
+        onMoveRequest={handleStartMoveTree}
+        isCompareMode={isCompareMode}
+      />
 
-      {isExportingPdf && (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '1024px' }}>
-          <div id="legend-for-canvas">
-            <PdfLegend
-              selectedDate={selectedDate}
-              isCompareMode={isCompareMode}
-              compareDates={compareDates}
-            />
-          </div>
-        </div>
-      )}
-
-      {!isExportingPdf && (
-        <>
-          <Toolbar
-            isEditMode={isEditMode}
-            onToggleEditMode={handleToggleEditMode}
-            isAddingTree={isAddingTree}
-            onToggleAddTreeMode={handleToggleAddTreeMode}
-            availableDates={availableDates}
-            selectedDate={selectedDate}
-            onDateChange={handleDateChange}
-            onDownload={handleDownloadCurrentView}
-            onSaveRequest={handleSaveRequest}
-            onImportRequest={handleImportRequest}
-            isMovingTree={!!movingTreeUuid}
-            onCancelMove={handleCancelMove}
-            isCompareMode={isCompareMode}
-            onToggleCompareMode={handleToggleCompareMode}
-            compareDates={compareDates}
-            onCompareDateChange={handleCompareDateChange}
-            isComparing={isComparing}
-            onClearLocalStorage={handleClearLocalStorage}
-            highlightedFilter={highlightedFilter}
-            onHighlightFilterChange={handleHighlightFilterChange}
-            onExportPdf={handleExportPdf}
-            isExportingPdf={isExportingPdf}
-          />
-          
-          {isSaveModalOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-              <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-sm m-4">
-                <h2 className="text-xl font-bold mb-2">{t('saveModalTitle')}</h2>
-                <p className="text-sm text-gray-600 mb-4">{t('saveModalDescription')}</p>
-                <input
-                  type="date"
-                  value={newVersionDate}
-                  onChange={(e) => setNewVersionDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md mb-4"
-                />
-                <div className="flex justify-end space-x-2">
-                  <button onClick={() => setIsSaveModalOpen(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">{t('cancel')}</button>
-                  <button onClick={handleSaveNewVersion} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">{t('saveAndDownload')}</button>
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 transition-opacity">
+            <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-sm m-4 relative animate-fade-in-up">
+                <button onClick={() => setIsSaveModalOpen(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
+                    <CloseIcon className="w-6 h-6" />
+                </button>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">{t('saveModalTitle')}</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                   {t('saveModalDescription')}
+                </p>
+                <div>
+                    <label htmlFor="version-date" className="block text-sm font-medium text-gray-700">{t('dateLabel')}</label>
+                    <input
+                        type="date"
+                        id="version-date"
+                        value={newVersionDate}
+                        onChange={(e) => setNewVersionDate(e.target.value)}
+                        className="mt-1 block w-full pl-3 pr-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md"
+                    />
                 </div>
-              </div>
+                <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                        onClick={() => setIsSaveModalOpen(false)}
+                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                    >
+                        {t('cancel')}
+                    </button>
+                    <button
+                        onClick={handleSaveNewVersion}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        {t('saveAndDownload')}
+                    </button>
+                </div>
             </div>
-          )}
-
-          {selectedTree && (
-            <TreeInfoModal
-              tree={selectedTree}
-              onClose={handleCloseModal}
-              isEditMode={isEditMode}
-              onSave={handleSaveTree}
-              onDelete={handleDeleteTree}
-              onMoveRequest={handleStartMoveTree}
-              isCompareMode={isCompareMode}
-            />
-          )}
-
-          {/* Info Panel Toggle */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-              <button 
-                  onClick={() => setIsInfoPanelOpen(prev => !prev)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg text-gray-700 hover:bg-white transition-colors"
-              >
-                  <InformationCircleIcon className="w-5 h-5"/>
-                  <span>{t('infoPanelTitle')}</span>
-              </button>
-          </div>
-
-          <InfoPanel 
-              isOpen={isInfoPanelOpen} 
-              onClose={() => setIsInfoPanelOpen(false)}
-              selectedDate={selectedDate}
-              isCompareMode={isCompareMode}
-              compareDates={compareDates}
-          />
-
-          {/* Map Pan/Zoom Controls */}
-          <div className="absolute bottom-4 right-4 z-20 flex flex-col space-y-2">
-            {/* Zoom controls */}
-            <div className="flex flex-col bg-white/80 backdrop-blur-sm rounded-lg shadow-lg">
-              <button onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + 0.2))} className="p-2 hover:bg-gray-200 transition-colors rounded-t-lg" aria-label={t('navZoomIn')}><PlusIcon className="w-5 h-5 text-gray-700" /></button>
-              <button onClick={resetPanAndZoom} className="p-2 border-y border-white/50 hover:bg-gray-200 transition-colors" aria-label={t('navReset')}><FitScreenIcon className="w-5 h-5 text-gray-700" /></button>
-              <button onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - 0.2))} className="p-2 hover:bg-gray-200 transition-colors rounded-b-lg" aria-label={t('navZoomOut')}><MinusIcon className="w-5 h-5 text-gray-700" /></button>
-            </div>
-
-            {/* Pan controls */}
-            <div className="grid grid-cols-3 gap-px bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-1">
-              <div></div>
-              <button onClick={() => setPan(p => ({...p, y: p.y + PAN_STEP}))} className="p-2 hover:bg-gray-200 transition-colors rounded-md" aria-label={t('navPanUp')}><ArrowUpIcon className="w-5 h-5 text-gray-700" /></button>
-              <div></div>
-              <button onClick={() => setPan(p => ({...p, x: p.x + PAN_STEP}))} className="p-2 hover:bg-gray-200 transition-colors rounded-md" aria-label={t('navPanLeft')}><ArrowLeftIcon className="w-5 h-5 text-gray-700" /></button>
-              <div></div>
-              <button onClick={() => setPan(p => ({...p, x: p.x - PAN_STEP}))} className="p-2 hover:bg-gray-200 transition-colors rounded-md" aria-label={t('navPanRight')}><ArrowRightIcon className="w-5 h-5 text-gray-700" /></button>
-              <div></div>
-              <button onClick={() => setPan(p => ({...p, y: p.y - PAN_STEP}))} className="p-2 hover:bg-gray-200 transition-colors rounded-md" aria-label={t('navPanDown')}><ArrowDownIcon className="w-5 h-5 text-gray-700" /></button>
-              <div></div>
-            </div>
-          </div>
-        </>
+        </div>
       )}
       
-      <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".json" style={{ display: 'none' }} />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileImport}
+        className="hidden"
+        accept="application/json"
+      />
+      
+      {isCompareMode && <CompareLegend />}
+
+      <div className="absolute bottom-4 right-4 z-20 flex items-end gap-2">
+        <div className="grid grid-cols-3 grid-rows-3 gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-lg">
+          <div className="col-start-2 row-start-1 flex justify-center">
+            <button onClick={() => handlePanButtonClick('up')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanUp')}><ArrowUpIcon className="w-5 h-5" /></button>
+          </div>
+          <div className="col-start-1 row-start-2 flex justify-center">
+            <button onClick={() => handlePanButtonClick('left')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanLeft')}><ArrowLeftIcon className="w-5 h-5" /></button>
+          </div>
+          <div className="col-start-2 row-start-2 flex justify-center">
+            <button onClick={handleResetZoom} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navReset')}><FitScreenIcon className="w-5 h-5" /></button>
+          </div>
+          <div className="col-start-3 row-start-2 flex justify-center">
+            <button onClick={() => handlePanButtonClick('right')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanRight')}><ArrowRightIcon className="w-5 h-5" /></button>
+          </div>
+          <div className="col-start-2 row-start-3 flex justify-center">
+            <button onClick={() => handlePanButtonClick('down')} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navPanDown')}><ArrowDownIcon className="w-5 h-5" /></button>
+          </div>
+        </div>
+
+        <div className="flex flex-col bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-lg">
+            <button onClick={handleZoomIn} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navZoomIn')}><PlusIcon className="w-5 h-5" /></button>
+            <button onClick={handleZoomOut} className="p-2 rounded hover:bg-gray-200 transition-colors" aria-label={t('navZoomOut')}><MinusIcon className="w-5 h-5" /></button>
+        </div>
+      </div>
     </div>
   );
 };

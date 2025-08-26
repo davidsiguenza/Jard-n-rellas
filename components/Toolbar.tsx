@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { EditIcon, ViewIcon, DownloadIcon, AddIcon, UploadIcon, CloseIcon, CompareIcon, TrashIcon, DotsVerticalIcon, ChevronDownIcon, PdfIcon } from './icons/index';
+import { EditIcon, ViewIcon, DownloadIcon, AddIcon, UploadIcon, CloseIcon, CompareIcon, TrashIcon, DotsVerticalIcon, ChevronDownIcon } from './icons/index';
 import { TREE_NAMES } from '../constants';
 import { useLanguage } from '../i18n/LanguageContext';
 import { supportedLngs } from '../i18n/config';
@@ -25,8 +25,6 @@ interface ToolbarProps {
   onClearLocalStorage: () => void;
   highlightedFilter: string;
   onHighlightFilterChange: (filter: string) => void;
-  onExportPdf: () => void;
-  isExportingPdf: boolean;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -50,8 +48,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onClearLocalStorage,
   highlightedFilter,
   onHighlightFilterChange,
-  onExportPdf,
-  isExportingPdf,
 }) => {
   const { lng, t, changeLanguage } = useLanguage();
   const commonSelectClasses = "block w-full pl-3 pr-8 py-1.5 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md shadow-sm";
@@ -60,11 +56,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   const langMenuRef = useRef<HTMLDivElement>(null);
 
-  const [treeTypes, setTreeTypes] = useState<{ genera: Map<string, { id: number; name: string; }[]>, species: { id: number; name: string; }[] }>({ genera: new Map(), species: [] });
+  const [treeTypes, setTreeTypes] = useState<{ genera: Map<string, any[]>, species: any[] }>({ genera: new Map(), species: [] });
 
   useEffect(() => {
-    const genera = new Map<string, { id: number, name: string }[]>();
-    const species: { id: number, name: string }[] = [];
+    const genera = new Map<string, any[]>();
+    const species = [];
 
     for (const [id, info] of TREE_NAMES.entries()) {
         if(id === 10) continue; // Skip '???'
@@ -254,11 +250,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
         <div className="relative" ref={actionsMenuRef}>
             <button
                 onClick={() => setIsActionsMenuOpen(prev => !prev)}
-                className="p-2 rounded-full hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 rounded-full hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400"
                 aria-haspopup="true"
                 aria-expanded={isActionsMenuOpen}
                 aria-label={t('actionsMenuLabel')}
-                disabled={isExportingPdf}
             >
                 <DotsVerticalIcon className="h-5 w-5 text-gray-700" />
             </button>
@@ -267,19 +262,13 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-30 animate-fade-in-up transition-all duration-150">
                     <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
                         {!isEditMode && (
-                            <MenuItem onClick={onToggleEditMode} icon={<EditIcon />} text={t('editMode')} />
-                        )}
-                        
-                        <div className="border-t my-1 mx-2 border-gray-100"></div>
-                        
-                        <MenuItem onClick={onExportPdf} icon={<PdfIcon />} text={t('exportPdf')} />
-                        {!isEditMode && (
-                            <MenuItem onClick={onDownload} icon={<DownloadIcon />} text={t('downloadData')} />
+                            <>
+                                <MenuItem onClick={onToggleEditMode} icon={<EditIcon />} text={t('editMode')} />
+                                <MenuItem onClick={onDownload} icon={<DownloadIcon />} text={t('downloadData')} />
+                                <div className="border-t my-1 mx-2 border-gray-100"></div>
+                            </>
                         )}
                         <MenuItem onClick={onImportRequest} icon={<UploadIcon />} text={t('importData')} />
-                        
-                        <div className="border-t my-1 mx-2 border-gray-100"></div>
-
                         <MenuItem onClick={onClearLocalStorage} icon={<TrashIcon />} text={t('clearLocalData')} isDestructive={true} />
                     </div>
                 </div>
@@ -300,7 +289,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             {isLangMenuOpen && (
                  <div className="absolute right-0 mt-2 w-40 origin-top-right rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-30 animate-fade-in-up transition-all duration-150">
                     <div className="py-1" role="menu" aria-orientation="vertical">
-                        {Object.entries(supportedLngs).map(([code, name]: [string, string]) => (
+                        {Object.entries(supportedLngs).map(([code, name]) => (
                             <button
                                 key={code}
                                 onClick={() => {
