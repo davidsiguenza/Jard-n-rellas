@@ -1,5 +1,3 @@
-
-
 export * from './AddIcon';
 export * from './AlbiziaIcon';
 export * from './AppleIcon';
@@ -9,6 +7,7 @@ export * from './ArrowLeftIcon';
 export * from './ArrowRightIcon';
 export * from './ArrowUpIcon';
 export * from './BambooIcon';
+export * from './CameraIcon';
 export * from './CameliaIcon';
 export * from './CedarOfLebanonIcon';
 export * from './CercisIcon';
@@ -40,6 +39,7 @@ export * from './OliveIcon';
 export * from './OrangeIcon';
 export * from './PeachIcon';
 export * from './PearIcon';
+export * from './PdfIcon';
 export * from './PlumIcon';
 export * from './PlusIcon';
 export * from './PrunusPendulaIcon';

@@ -1,5 +1,7 @@
 {
   "name": "Interactive Garden Map",
   "description": "A dynamic web application to visualize, manage, and track the history of trees in a garden. Features an interactive map, edit mode with drag-and-drop, and the ability to view changes over time.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

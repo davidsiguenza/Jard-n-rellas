@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Tree, DiffTree } from '../types';
+import { Tree, DiffTree } from './types';
 import TreeMarker from './components/TreeMarker';
 import MapOverlay from './components/MapOverlay';
 

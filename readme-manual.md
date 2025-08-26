@@ -222,35 +222,44 @@ const renderCustomIcon = (IconComponent: React.ElementType) => {
 
 ---
 
-## Deployment Configuration Checklist
+## Manual Configuration Checklist
 
-This section provides a checklist to verify the project is correctly configured for GitHub Pages deployment. This is useful if the project files are overwritten by an external tool (like AI Studio) and the deployment configuration needs to be verified.
+This section provides a checklist of the manual changes required to configure this project for GitHub Pages deployment. This is useful if the project files are overwritten by an external tool (like AI Studio) and the deployment configuration needs to be restored.
 
 ### 1. File and Directory Structure
 
-Ensure the following directory structure exists. The key is that the `data` directory, containing all historical JSON files and the `manifest.json`, is located inside the `public` directory at the project root.
+Ensure the following directory structure exists. The key is to have a `public` directory at the root, which contains the `data` directory.
 
 ```
 .
 ├── public/
 │   └── data/
-│       ├── ... (data files like 2024-05-25.json)
+│       ├── 2024-05-25.json
+│       ├── 2025-08-01.json
+│       ├── ... (other data files)
 │       └── manifest.json
 ├── src/
 │   └── ... (source files)
 └── ... (other project files)
 ```
 
-### 2. `package.json` Configuration
+### 2. `package.json` Modifications
 
-Ensure the following properties are correctly set in `package.json`:
+The following changes need to be made to `package.json`:
 
-- **`homepage`:** This should be set to your GitHub Pages URL.
+- **Install `gh-pages` dependency:**
+  ```bash
+  npm install gh-pages --save-dev
+  ```
+
+- **Add `homepage` property:**
+  Add a `homepage` property. Replace `<username>` and `<repo-name>` with your actual GitHub username and repository name.
   ```json
   "homepage": "https://<username>.github.io/<repo-name>",
   ```
 
-- **`scripts`:** The `predeploy` and `deploy` scripts must be present.
+- **Add `deploy` scripts:**
+  Add the `predeploy` and `deploy` scripts to the `scripts` section.
   ```json
   "scripts": {
     "dev": "vite",
@@ -260,17 +269,10 @@ Ensure the following properties are correctly set in `package.json`:
     "deploy": "gh-pages -d dist"
   },
   ```
-- **`devDependencies`:** The `gh-pages` package must be listed.
-  ```json
-  "devDependencies": {
-    "gh-pages": "^6.3.0",
-    // ... other dependencies
-  }
-  ```
 
-### 3. `vite.config.ts` Configuration
+### 3. `vite.config.ts` Modifications
 
-Ensure the `base` property is set in the Vite configuration object. The value must be your repository name, surrounded by slashes.
+Add the `base` property to the Vite configuration object. The value should be your repository name, surrounded by slashes.
 
 ```typescript
 // vite.config.ts
@@ -278,12 +280,38 @@ import { defineConfig } from 'vite';
 // ... other imports
 
 export default defineConfig({
-  base: '/<repo-name>/',
+  base: '/interactive-garden-map/', // Or your repository name
   // ... other configurations
 });
 ```
 
-### 4. Pathing in Code and Data
+### 4. Code Changes in `App.tsx`
 
-- **`App.tsx`:** The `fetch` call for `manifest.json` must use a relative path from the `public` directory root: `fetch('data/manifest.json')`.
-- **`public/data/manifest.json`:** All paths to data files inside the manifest must also be relative from the `public` directory root: `"path": "data/2025-08-20.json"`.
+The `fetch` call for `manifest.json` needs to use a **relative path**.
+
+- **Find this line:**
+  ```typescript
+  const response = await fetch('/data/manifest.json');
+  ```
+
+- **Change it to:**
+  ```typescript
+  const response = await fetch('data/manifest.json');
+  ```
+
+### 5. Data File Path Correction in `manifest.json`
+
+The paths inside `public/data/manifest.json` must also be **relative**.
+
+- **Ensure paths look like this (no leading slash):**
+  ```json
+  {
+    "versions": [
+      {
+        "date": "2025-08-20",
+        "path": "data/2025-08-20.json"
+      },
+      // ...
+    ]
+  }
+  ```

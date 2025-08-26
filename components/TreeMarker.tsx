@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Tree, TreeStatus, TreeSize, DiffTree, TreeDiffStatus } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
-import { TREE_NAMES } from '../constants';
+import { TREE_NAMES, statusColors } from '../constants';
 import { PlumIcon, AppleIcon, PearIcon, HollyIcon, MapleIcon, CherryIcon, CameliaIcon, PrunusPendulaIcon, MagnoliaIcon, LiquidambarIcon, PeachIcon, OakIcon, QuinceIcon, WalnutIcon, ChestnutIcon, CorkOakIcon, OrangeIcon, LemonIcon, CedarOfLebanonIcon, MimosaIcon, AraucariaIcon, CercisIcon, GinkgoIcon, OliveIcon, BambooIcon, AlbiziaIcon, MadronoIcon, CornusFloridaIcon, RhododendronIcon, WisteriaIcon, GrevilleaIcon, GooseberryIcon } from './icons/index';
 
 interface TreeMarkerProps {
@@ -45,12 +44,6 @@ const RHODODENDRON_TREE_IDS = [20];
 const WISTERIA_TREE_IDS = [21];
 const GREVILLEA_TREE_IDS = [9];
 const GOOSEBERRY_TREE_IDS = [31];
-
-const statusColors: Record<TreeStatus, string> = {
-  [TreeStatus.Identified]: 'bg-yellow-900 border-yellow-700',
-  [TreeStatus.Unidentified]: 'bg-red-700 border-red-500',
-  [TreeStatus.ToBeCut]: 'bg-gray-500 border-gray-400',
-};
 
 const diffClasses: Record<TreeDiffStatus, string> = {
   [TreeDiffStatus.Added]: 'bg-green-500 border-green-300 ring-2 ring-offset-1 ring-green-400',
