@@ -86,7 +86,7 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
       let manifestMap = new Map<string, string>();
       try {
-        const response = await fetch('/data/manifest.json');
+        const response = await fetch(`${import.meta.env.BASE_URL}data/manifest.json`);
         if (!response.ok) throw new Error('Failed to fetch manifest');
         const manifest = await response.json();
         
@@ -125,7 +125,7 @@ const App: React.FC = () => {
     if (manifestVersions.has(date)) {
         try {
             const path = manifestVersions.get(date)!;
-            const response = await fetch(path);
+            const response = await fetch(`${import.meta.env.BASE_URL}${path}`);
             if (!response.ok) throw new Error(`Failed to fetch ${path}`);
             const gardenState: GardenState = await response.json();
             
