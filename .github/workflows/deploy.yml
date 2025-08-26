@@ -1,0 +1,56 @@
+# Flujo de trabajo para desplegar el sitio en GitHub Pages
+name: Deploy to GitHub Pages
+
+on:
+  # Se ejecuta en cada push a la rama "main"
+  push:
+    branches: [ "main" ]
+  # Permite ejecutar este flujo de trabajo manualmente desde la pestaña Actions en GitHub
+  workflow_dispatch:
+
+# Permisos para el GITHUB_TOKEN
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Permite un solo despliegue concurrente, cancelando los anteriores si se vuelve a hacer push
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # Tarea de despliegue
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      # MUY IMPORTANTE: Si tu proyecto necesita una API Key para construirse,
+      # necesitarás añadirla como un "Secret" en la configuración de tu repositorio de GitHub.
+      # Ve a Settings > Secrets and variables > Actions, y crea un nuevo "Repository secret"
+      # con el nombre "GEMINI_API_KEY" y el valor de tu clave.
+      # El siguiente paso de "Build" usará esa clave de forma segura.
+      - name: Build
+        run: npm run build
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Sube el directorio "dist" que es donde Vite pone los archivos de la web
+          path: './dist'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
