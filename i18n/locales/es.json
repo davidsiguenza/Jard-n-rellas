@@ -82,5 +82,13 @@
   "navZoomOut": "Alejar",
   "treeMarkerAriaLabel": "Árbol {{id}} - {{name}}",
   "newTree": "Nuevo Árbol",
-  "unknownTreeQuestion": "???"
+  "unknownTreeQuestion": "???",
+  "personalNotes": "Notas Personales",
+  "personalNotesPlaceholder": "Añade notas específicas para este árbol...",
+  "legendTitle": "Leyenda",
+  "treeTypes": "Tipos de Árboles",
+  "exportToPdf": "Exportar a PDF",
+  "generatingPdf": "Generando PDF...",
+  "showLegend": "Mostrar Leyenda",
+  "alert_pdfError": "No se pudo generar el PDF."
 }

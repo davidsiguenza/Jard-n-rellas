@@ -1,5 +1,6 @@
 
 
+
 export * from './AddIcon';
 export * from './AlbiziaIcon';
 export * from './AppleIcon';
@@ -40,6 +41,7 @@ export * from './OliveIcon';
 export * from './OrangeIcon';
 export * from './PeachIcon';
 export * from './PearIcon';
+export * from './PdfIcon';
 export * from './PlumIcon';
 export * from './PlusIcon';
 export * from './PrunusPendulaIcon';

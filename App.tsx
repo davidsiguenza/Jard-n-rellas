@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { GardenState, Tree, TreeSize, TreeStatus, DiffTree, TreeDiffStatus } from './types';
 import { TREE_NAMES } from './constants';
 import GardenMap from './GardenMap';
 import Toolbar from './components/Toolbar';
 import TreeInfoModal from './components/TreeInfoModal';
+import Legend from './components/Legend';
+import PrintableLegend from './components/PrintableLegend';
 import { PlusIcon, MinusIcon, FitScreenIcon, ArrowUpIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './components/icons/index';
 import { useLanguage } from './i18n/LanguageContext';
 
@@ -58,6 +62,7 @@ const App: React.FC = () => {
   const [movingTreeUuid, setMovingTreeUuid] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const printableLegendRef = useRef<HTMLDivElement>(null);
   
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -76,6 +81,40 @@ const App: React.FC = () => {
   const [compareDates, setCompareDates] = useState({ dateA: '', dateB: '' });
   const [diffs, setDiffs] = useState<DiffTree[] | null>(null);
   const [highlightedFilter, setHighlightedFilter] = useState<string>('');
+  
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [treeTypesForLegend, setTreeTypesForLegend] = useState<{ genera: Map<string, any[]>, species: any[] }>({ genera: new Map(), species: [] });
+
+  useEffect(() => {
+    const genera = new Map<string, any[]>();
+    const species = [];
+
+    for (const [id, info] of TREE_NAMES.entries()) {
+        if(id === 10) continue; 
+        
+        const speciesData = { id, name: info.common[lng], scientific: info.scientific, iconId: id };
+        if (info.genus) {
+            const genusName = info.genus[lng];
+            if (!genera.has(genusName)) {
+                genera.set(genusName, []);
+            }
+            genera.get(genusName)!.push(speciesData);
+        } else {
+            species.push(speciesData);
+        }
+    }
+
+    for (const speciesList of genera.values()) {
+        speciesList.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const sortedGenera = new Map([...genera.entries()].sort());
+    species.sort((a, b) => a.name.localeCompare(b.name));
+
+    setTreeTypesForLegend({ genera: sortedGenera, species });
+  }, [lng]);
+
 
   useEffect(() => {
     const getStoredHistory = (): GardenState[] => {
@@ -490,6 +529,7 @@ const App: React.FC = () => {
       position: { x: percentX, y: percentY },
       status: TreeStatus.Unidentified,
       size: TreeSize.S,
+      notes: '',
     };
     setSelectedTree(newTree);
     setIsAddingTree(false);
@@ -589,6 +629,74 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePdfExport = async () => {
+    setIsPrinting(true);
+
+    const mapElement = document.getElementById('garden-map-container');
+    const legendElement = printableLegendRef.current;
+    
+    if (!mapElement || !legendElement) {
+        setIsPrinting(false);
+        return;
+    }
+
+    try {
+        const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'pt',
+            format: 'a4'
+        });
+        
+        legendElement.style.display = 'block';
+        
+        const mapCanvas = await html2canvas(mapElement, {
+            useCORS: true,
+            allowTaint: true,
+            scale: 2 
+        });
+        const mapImgData = mapCanvas.toDataURL('image/png');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        const mapRatio = mapCanvas.width / mapCanvas.height;
+        let mapPdfWidth = pdfWidth;
+        let mapPdfHeight = pdfWidth / mapRatio;
+        if (mapPdfHeight > pdfHeight) {
+            mapPdfHeight = pdfHeight;
+            mapPdfWidth = pdfHeight * mapRatio;
+        }
+        const xOffsetMap = (pdfWidth - mapPdfWidth) / 2;
+        const yOffsetMap = (pdfHeight - mapPdfHeight) / 2;
+        pdf.addImage(mapImgData, 'PNG', xOffsetMap, yOffsetMap, mapPdfWidth, mapPdfHeight);
+
+        pdf.addPage('a4', 'portrait');
+        const legendCanvas = await html2canvas(legendElement, { scale: 2 });
+        const legendImgData = legendCanvas.toDataURL('image/png');
+        const pdfPortWidth = pdf.internal.pageSize.getWidth();
+        const pdfPortHeight = pdf.internal.pageSize.getHeight();
+        const legendRatio = legendCanvas.width / legendCanvas.height;
+        let legendPdfWidth = pdfPortWidth;
+        let legendPdfHeight = pdfPortWidth / legendRatio;
+        if (legendPdfHeight > pdfPortHeight) {
+            legendPdfHeight = pdfPortHeight;
+            legendPdfWidth = pdfPortHeight * legendRatio;
+        }
+        const xOffsetLegend = (pdfPortWidth - legendPdfWidth) / 2;
+        const yOffsetLegend = (pdfPortHeight - legendPdfHeight) / 2;
+        pdf.addImage(legendImgData, 'PNG', xOffsetLegend, yOffsetLegend, legendPdfWidth, legendPdfHeight);
+        
+        pdf.save(`garden_map_${selectedDate}.pdf`);
+
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        alert(t('alert_pdfError'));
+    } finally {
+        legendElement.style.display = 'none';
+        setIsPrinting(false);
+    }
+  }
+
   const treesToDisplay = isCompareMode ? (diffs ?? []) : (editedTrees ?? activeGardenState?.trees ?? []);
 
   return (
@@ -614,6 +722,9 @@ const App: React.FC = () => {
         onClearLocalStorage={handleClearLocalStorage}
         highlightedFilter={highlightedFilter}
         onHighlightFilterChange={handleHighlightFilterChange}
+        onToggleLegend={() => setIsLegendOpen(prev => !prev)}
+        onPdfExport={handlePdfExport}
+        isPrinting={isPrinting}
       />
       <div className="flex-grow w-full h-full relative p-2 bg-gray-200" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
         <div 
@@ -705,6 +816,20 @@ const App: React.FC = () => {
       />
       
       {isCompareMode && <CompareLegend />}
+
+      <Legend 
+        isOpen={isLegendOpen}
+        onClose={() => setIsLegendOpen(false)}
+        selectedDate={selectedDate}
+        treeTypes={treeTypesForLegend}
+      />
+
+      <div ref={printableLegendRef} style={{ position: 'absolute', left: '-9999px', top: '0px', display: 'none' }}>
+        <PrintableLegend 
+            selectedDate={selectedDate}
+            treeTypes={treeTypesForLegend}
+        />
+      </div>
 
       <div className="absolute bottom-4 right-4 z-20 flex items-end gap-2">
         <div className="grid grid-cols-3 grid-rows-3 gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-lg">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { EditIcon, ViewIcon, DownloadIcon, AddIcon, UploadIcon, CloseIcon, CompareIcon, TrashIcon, DotsVerticalIcon, ChevronDownIcon } from './icons/index';
+import { EditIcon, ViewIcon, DownloadIcon, AddIcon, UploadIcon, CloseIcon, CompareIcon, TrashIcon, DotsVerticalIcon, ChevronDownIcon, InformationCircleIcon, PdfIcon } from './icons/index';
 import { TREE_NAMES } from '../constants';
 import { useLanguage } from '../i18n/LanguageContext';
 import { supportedLngs } from '../i18n/config';
@@ -25,6 +25,9 @@ interface ToolbarProps {
   onClearLocalStorage: () => void;
   highlightedFilter: string;
   onHighlightFilterChange: (filter: string) => void;
+  onToggleLegend: () => void;
+  onPdfExport: () => void;
+  isPrinting: boolean;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -48,6 +51,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onClearLocalStorage,
   highlightedFilter,
   onHighlightFilterChange,
+  onToggleLegend,
+  onPdfExport,
+  isPrinting,
 }) => {
   const { lng, t, changeLanguage } = useLanguage();
   const commonSelectClasses = "block w-full pl-3 pr-8 py-1.5 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md shadow-sm";
@@ -104,7 +110,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const MenuItem = ({ onClick, icon, text, isDestructive = false }: {onClick: () => void, icon: React.ReactElement<{ className?: string }>, text: string, isDestructive?: boolean}) => (
+  const MenuItem = ({ onClick, icon, text, isDestructive = false, disabled = false }: {onClick: () => void, icon: React.ReactElement<{ className?: string }>, text: string, isDestructive?: boolean, disabled?: boolean}) => (
     <button
         onClick={() => {
             onClick();
@@ -112,8 +118,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
         }}
         className={`w-full text-left flex items-center space-x-3 px-4 py-2 text-sm ${
             isDestructive ? 'text-red-700' : 'text-gray-700'
-        } hover:${isDestructive ? 'bg-red-50' : 'bg-gray-100'} transition-colors`}
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : `hover:${isDestructive ? 'bg-red-50' : 'bg-gray-100'}`} transition-colors`}
         role="menuitem"
+        disabled={disabled}
     >
         {React.cloneElement(icon, { className: "w-5 h-5" })}
         <span>{text}</span>
@@ -265,9 +272,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
                             <>
                                 <MenuItem onClick={onToggleEditMode} icon={<EditIcon />} text={t('editMode')} />
                                 <MenuItem onClick={onDownload} icon={<DownloadIcon />} text={t('downloadData')} />
-                                <div className="border-t my-1 mx-2 border-gray-100"></div>
                             </>
                         )}
+                         <MenuItem onClick={onPdfExport} icon={<PdfIcon />} text={isPrinting ? t('generatingPdf') : t('exportToPdf')} disabled={isPrinting} />
+                        <div className="border-t my-1 mx-2 border-gray-100"></div>
                         <MenuItem onClick={onImportRequest} icon={<UploadIcon />} text={t('importData')} />
                         <MenuItem onClick={onClearLocalStorage} icon={<TrashIcon />} text={t('clearLocalData')} isDestructive={true} />
                     </div>
@@ -306,6 +314,15 @@ const Toolbar: React.FC<ToolbarProps> = ({
                  </div>
             )}
         </div>
+
+        {/* Legend Button */}
+        <button
+            onClick={onToggleLegend}
+            className="p-2 rounded-full hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400"
+            aria-label={t('showLegend')}
+        >
+            <InformationCircleIcon className="h-5 w-5 text-gray-700" />
+        </button>
     </div>
   );
 };

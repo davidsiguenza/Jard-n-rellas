@@ -126,7 +126,7 @@ const TreeInfoModal: React.FC<TreeInfoModalProps> = ({ tree, onClose, isEditMode
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (name === 'id') {
         const id = parseInt(value, 10);
@@ -338,6 +338,27 @@ const TreeInfoModal: React.FC<TreeInfoModalProps> = ({ tree, onClose, isEditMode
                  <p className="mt-1 text-lg text-gray-900 bg-gray-50 p-2 rounded-md">{tree.size.toUpperCase()}</p>
             )}
           </div>
+          
+          {isEditMode ? (
+            <div>
+              <label htmlFor="notes-textarea" className="block text-sm font-medium text-gray-700">{t('personalNotes')}</label>
+              <textarea
+                  id="notes-textarea"
+                  name="notes"
+                  value={formData.notes || ''}
+                  onChange={handleInputChange}
+                  rows={4}
+                  className="mt-1 block w-full text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md shadow-sm"
+                  placeholder={t('personalNotesPlaceholder')}
+              />
+            </div>
+          ) : formData.notes && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">{t('personalNotes')}</label>
+              <p className="mt-1 text-gray-800 bg-gray-50 p-2 rounded-md text-sm whitespace-pre-wrap">{formData.notes}</p>
+            </div>
+          )}
+
         </div>
         
         {renderGenerativeContent()}
