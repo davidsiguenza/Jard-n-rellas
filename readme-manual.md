@@ -52,31 +52,68 @@ When a user clicks the "Learn More" button in the `TreeInfoModal`, the applicati
 
 ## Deploying to GitHub Pages
 
-This section provides a step-by-step guide to deploying the application to GitHub Pages, which typically hosts sites in a subdirectory.
+This section provides a step-by-step guide to deploying the application to GitHub Pages. This process has been tested and includes solutions to common issues.
 
-### Prerequisites
+### 1. Project Structure for Static Assets (Crucial Step)
 
--   A GitHub account.
--   A GitHub repository for this project.
--   `node` and `npm` installed locally.
--   The project is set up using Vite (or a similar modern build tool).
+For the deployment to work, Vite needs to know which files to copy directly into the final build output. These are "static assets" that are not directly imported into the application's code, like JSON files, images, or fonts.
 
-### Manual Configuration Checklist
+Vite uses a special directory named `public` at the project root for this purpose.
 
-If you are setting up deployment from scratch or restoring a configuration, ensure the following steps are completed.
+**Action Required:**
+1.  Create a directory named `public` at the root of your project if it doesn't exist.
+2.  Move the `data` directory (containing all `*.json` files) into the `public` directory.
+3.  Move the `i18n/locales` directory (containing `es.json` and `gl.json`) into the `public` directory.
 
-#### 1. Install `gh-pages`
+The final structure should look like this:
+```
+.
+├── public/
+│   ├── data/
+│   │   ├── 2024-05-25.json
+│   │   └── ...
+│   └── locales/
+│       ├── es.json
+│       └── gl.json
+├── src/
+│   ├── App.tsx
+│   ├── i18n/
+│   │   ├── LanguageContext.tsx
+│   │   └── config.ts
+│   └── ...
+└── vite.config.ts
+```
+**Note:** The `src/i18n` directory itself, containing `.tsx` and `.ts` files, must remain in `src` as it is part of the application's source code.
 
-This package simplifies deploying the build output to a `gh-pages` branch.
+### 2. Code Adjustments for Asset Paths
 
+Because we moved the static assets, we need to update the paths used to fetch them in the code.
+
+-   **File to modify:** `src/i18n/LanguageContext.tsx`
+-   **Change:** Update the `fetch` paths to point to the new location. The `public` directory becomes the root of the server, so you can reference the files directly.
+
+    *Original Code:*
+    ```typescript
+    const esPromise = fetch('i18n/locales/es.json').then(res => res.json());
+    const glPromise = fetch('i18n/locales/gl.json').then(res => res.json());
+    ```
+    *Corrected Code:*
+    ```typescript
+    const esPromise = fetch('locales/es.json').then(res => res.json());
+    const glPromise = fetch('locales/gl.json').then(res => res.json());
+    ```
+-   **Verification:** The paths in `App.tsx` (for `data/manifest.json`) and `data/manifest.json` (for the individual data files) should already be relative and will work correctly with the new structure.
+
+### 3. Build Configuration (`package.json` and `vite.config.ts`)
+
+**A. Install Dependencies:**
+First, ensure you have the necessary development dependencies.
 ```bash
-npm install gh-pages --save-dev
+npm install gh-pages @vitejs/plugin-react --save-dev
 ```
 
-#### 2. Update `package.json`
-
-Add the following properties to your `package.json` file. Replace `<your-username>` and `<your-repo-name>` with your actual details.
-
+**B. Configure `package.json`:**
+Add the `homepage` URL and the deployment `scripts` to your `package.json`. Replace `<your-username>` and `<your-repo-name>` with your details.
 ```json
 {
   // ... other properties
@@ -92,10 +129,8 @@ Add the following properties to your `package.json` file. Replace `<your-usernam
 }
 ```
 
-#### 3. Create or Update `vite.config.ts`
-
-Create or update a `vite.config.ts` file at the project root. The `base` property is crucial for ensuring assets are loaded correctly from the repository subdirectory on GitHub Pages.
-
+**C. Configure `vite.config.ts`:**
+Ensure your `vite.config.ts` includes the `react` plugin and the correct `base` path. The `base` path must match your repository's name.
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite';
@@ -106,36 +141,43 @@ export default defineConfig({
   base: '/<your-repo-name>/', // e.g., '/interactive-garden-map/'
 });
 ```
-*Note: This file might not exist in the initial project. It needs to be created to specify the `base` path for deployment.*
 
-#### 4. Ensure Relative Asset Paths
+### 4. Deployment Command
 
-All `fetch` requests in the code must use relative paths, not absolute paths (which start with `/`). This ensures they resolve correctly under the repository subdirectory.
-
--   **`App.tsx`**: `fetch('/data/manifest.json')` should be `fetch('data/manifest.json')`.
--   **`i18n/LanguageContext.tsx`**: `/i18n/locales/...` paths should be `i18n/locales/...`.
--   **`data/manifest.json`**: All `path` values must be relative (e.g., `"path": "data/2025-08-20.json"` instead of `"/data/..."`).
-
-*These path corrections have been applied to the codebase to facilitate deployment.*
-
-#### 5. Project Structure for Static Assets
-Vite automatically handles files in a `public` directory at the root of your project by copying them to the root of the output `dist` folder. If your project does not use a `public` folder, ensure your static asset folders (like `data` and `i18n`) are at the project root alongside `index.html`. The relative paths in the code (`data/...` and `i18n/...`) will work correctly with this structure.
-
-### Deployment Command
-
-Once the configuration is complete, run the deploy script:
-
+Once all the configuration is complete, run the deploy script from your terminal:
 ```bash
 npm run deploy
 ```
+This command will first build the project into the `dist` folder and then push this folder's contents to a branch named `gh-pages`.
 
-This command will:
-1.  Run `npm run build` to create a production build in the `dist` directory.
-2.  Run `gh-pages -d dist` to push the contents of the `dist` directory to the `gh-pages` branch of your repository.
+### 5. Configure GitHub Pages Source
 
-### Configure GitHub Pages Source
+Finally, you need to tell GitHub to serve your site from the new branch.
+1.  Go to your repository's **Settings** on GitHub.
+2.  In the sidebar, click on **Pages**.
+3.  Under "Build and deployment", for the "Source", select **Deploy from a branch**.
+4.  Set the "Branch" to `gh-pages` with the folder `/ (root)`.
+5.  Click **Save**.
 
-Finally, go to your repository's settings on GitHub. Under the "Pages" section, select the `gh-pages` branch as the source and save. Your application will be live at the URL you specified in the `homepage` property.
+Your application will be live at the URL you specified in the `homepage` property within a few minutes.
+
+### Troubleshooting
+
+-   **Error: `fatal: a branch named 'gh-pages' already exists`**
+    If the `npm run deploy` command fails with this error, it means a previous failed deployment left a `gh-pages` branch behind. To fix this, you may need to delete it both locally and on the remote.
+    ```bash
+    # Delete the local branch
+    git branch -d gh-pages
+    # Delete the remote branch
+    git push origin --delete gh-pages
+    ```
+    After deleting the branches, run `npm run deploy` again.
+
+-   **Application loads but texts or data are missing:**
+    This is almost always a pathing issue. Double-check that:
+    1.  The `data` and `locales` folders are inside the `public` directory.
+    2.  The `base` property in `vite.config.ts` is correct (`/your-repo-name/`).
+    3.  The `fetch` paths in `LanguageContext.tsx` are correct (e.g., `'locales/es.json'`).
 
 ---
 
