@@ -69,7 +69,7 @@ const Legend: React.FC<LegendProps> = ({ isOpen, onClose, selectedDate, treeType
                     </div>
                     <div>
                         <h3 className="font-semibold text-gray-700 mb-2">{t('treeTypes')}</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2">
                             {treeTypes.species.map(({ id, name }) => (
                                 <TreeTypeItem key={`species-${id}`} id={id} name={name} />
                             ))}
